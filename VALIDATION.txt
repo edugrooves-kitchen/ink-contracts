@@ -1,0 +1,462 @@
+forge Version: 1.8.5
+Commit SHA: 51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f
+Build Timestamp: 2026-10-05T17:18:54.332175693Z (1791220734)
+Build Profile: dist
+
+Production creation/runtime bytecode identical across two clean isolated builds.
+This is not a security audit, real-router proof or mainnet readiness certification.
+
+=== Clean isolated run 1 ===
+$ forge build
+Compiling 175 files with Solc 0.8.26
+Solc 0.8.26 finished in 14.84s
+Compiler run successful with warnings:
+Warning (2519): This declaration shadows an existing declaration.
+  --> script/LocalStack.s.sol:95:26:
+   |
+95 |     function _deployHook(InkPortraits portraits, InkVault vault, address treasury) internal returns (InkHook) {
+   |                          ^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:38:5:
+   |
+38 |     InkPortraits portraits;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+  --> script/LocalStack.s.sol:95:50:
+   |
+95 |     function _deployHook(InkPortraits portraits, InkVault vault, address treasury) internal returns (InkHook) {
+   |                                                  ^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:39:5:
+   |
+39 |     InkVault vault;
+   |     ^^^^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+   --> script/LocalStack.s.sol:119:20:
+    |
+119 |     function _seed(PoolKey memory key, bool inkIs0, address to, ForkInk ink) internal {
+    |                    ^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:44:5:
+   |
+44 |     PoolKey key;
+   |     ^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+   --> script/LocalStack.s.sol:119:65:
+    |
+119 |     function _seed(PoolKey memory key, bool inkIs0, address to, ForkInk ink) internal {
+    |                                                                 ^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:43:5:
+   |
+43 |     ForkInk ink;
+   |     ^^^^^^^^^^^
+
+
+$ forge test -vv
+No files changed, compilation skipped
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium5xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 852.22µs (95.10µs CPU time)
+
+Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs0Test
+[SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
+[SKIP] test_fork_bigBuyAfterRelease() (gas: 0)
+[SKIP] test_fork_fullLifecycle() (gas: 0)
+[SKIP] test_fork_hookFeeExactInBuyIsInkAndBurned() (gas: 0)
+[SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
+[SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
+[SKIP] test_fork_sybilFirstHour() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 1.05ms (123.32µs CPU time)
+
+Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs1Test
+[SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
+[SKIP] test_fork_bigBuyAfterRelease() (gas: 0)
+[SKIP] test_fork_fullLifecycle() (gas: 0)
+[SKIP] test_fork_hookFeeExactInBuyIsInkAndBurned() (gas: 0)
+[SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
+[SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
+[SKIP] test_fork_sybilFirstHour() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 2.30ms (253.29µs CPU time)
+
+Ran 9 tests for test/SnapshotAllSeats.t.sol:SnapshotAllSeatsTest
+[SKIP] test_claims_0000() (gas: 0)
+[SKIP] test_claims_0250() (gas: 0)
+[SKIP] test_claims_0500() (gas: 0)
+[SKIP] test_claims_0750() (gas: 0)
+[SKIP] test_claims_1000() (gas: 0)
+[SKIP] test_claims_1250() (gas: 0)
+[SKIP] test_claims_1500() (gas: 0)
+[SKIP] test_claims_1750() (gas: 0)
+[SKIP] test_treeHasEverySeatOnce() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 9 skipped; finished in 492.72µs (276.32µs CPU time)
+
+Ran 2 tests for test/SnapshotProofs.t.sol:SnapshotProofsTest
+[PASS] test_realSnapshotProofsClaim() (gas: 3151956)
+[PASS] test_tamperedStatsAreRejected() (gas: 605229)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 7.70ms (3.06ms CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium1xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 769.11µs (14.03µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium2xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 783.19µs (11.24µs CPU time)
+
+Ran 1 test for test/TokenURIPreview.t.sol:TokenURIPreviewTest
+[PASS] test_writeTokenURIs() (gas: 25050347)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 41.07ms (40.90ms CPU time)
+
+Ran 1 test for test/LaunchDay.t.sol:LaunchDayTest
+[SKIP] test_fork_launchDay() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 921.29µs (16.88µs CPU time)
+
+Ran 44 tests for test/InkSystem.t.sol:InkSystemTest
+[PASS] test_agentBonusCappedAtFivePercent() (gas: 7425298)
+[PASS] test_agentBonusPaidOncePerPortrait() (gas: 27794920)
+[PASS] test_agentClaimsOwnPortraitFree() (gas: 285065)
+[PASS] test_agentDepositsPortraitForBonus() (gas: 2929526)
+[PASS] test_agentHoldersPayNoHookFee() (gas: 1406290)
+[PASS] test_agentHoldersRerollForHalf() (gas: 2727978)
+[PASS] test_borrowedAgentPortraitGetsNoWaiver() (gas: 1224300)
+[PASS] test_cantLockAnEmptyRenderer() (gas: 2845617)
+[PASS] test_claimRules() (gas: 432895)
+[PASS] test_collectFeesPaysImdToOwnerAndBurnsInk() (gas: 1770318)
+[PASS] test_contractWalletSeatCanClaim() (gas: 361014)
+[PASS] test_depositAfterPullCannotSteerTheDraw() (gas: 2429037)
+[PASS] test_depositMinOut() (gas: 1682173)
+[PASS] test_depositedAgentPortraitIsPullable() (gas: 1956160)
+[PASS] test_expiredPullIsRenewedNotSkipped() (gas: 1444374)
+[PASS] test_gasAtScale() (gas: 51878921)
+Logs:
+  pull(1) gas: 135128
+  revealNext(1) gas: 172586
+    per reveal: 172586
+  pull(10) gas: 321926
+  revealNext(10) gas: 670983
+    per reveal: 67098
+  pull(100) gas: 2532063
+  revealNext(100) gas: 6170452
+    per reveal: 61704
+  pull(400) gas: 9901254
+  revealNext(400) gas: 24534936
+    per reveal: 61337
+  deposit(100 portraits) gas: 6427402
+
+[PASS] test_guards() (gas: 9588683)
+[PASS] test_hookFeeImdToTreasury() (gas: 914424)
+[PASS] test_hookFeeInkIsBurned() (gas: 1401630)
+[PASS] test_idleSeatClaimsToo() (gas: 200995)
+[PASS] test_launchSplit() (gas: 67226)
+[PASS] test_liquidityFloorHoldsIfPriceIsDragged() (gas: 3051238)
+[PASS] test_noPerWalletLimitAfterRelease() (gas: 833757)
+[PASS] test_noPullsUntilRelease() (gas: 883096)
+[PASS] test_onlyOnePool() (gas: 46300)
+[PASS] test_ownerIsOwnerWalletNotDeployer() (gas: 6178485)
+[PASS] test_poolLockedUntilRelease() (gas: 1327156)
+[PASS] test_poolNeverOpensWithoutRelease() (gas: 1185916)
+[PASS] test_premiumBeforePoolCannotBeFrontRun() (gas: 4205374)
+[PASS] test_pullRerollPullAgain() (gas: 2470466)
+[PASS] test_releasePremiumListsAboveTheOpeningPrice() (gas: 639572)
+[PASS] test_releaseTurnsUnclaimedSeatsIntoSlotsAndPoolInk() (gas: 753757)
+[PASS] test_revealIsNotEarlyAndNotTwice() (gas: 1277654)
+[PASS] test_revealsGoInOrder() (gas: 1486719)
+[PASS] test_seatSoldDuringWindowNewOwnerClaims() (gas: 275224)
+[PASS] test_setupRules() (gas: 2663927)
+[PASS] test_setupStartMustBeSoon() (gas: 2763939)
+[PASS] test_traitRerollBeforeReleaseReverts() (gas: 39966)
+[PASS] test_traitRerollExpiredHashRenews() (gas: 1666894)
+[PASS] test_traitRerollGuards() (gas: 2086456)
+[PASS] test_traitRerollHalfPriceForAgentHolders() (gas: 1774610)
+[PASS] test_traitRerollRepaintsSameToken() (gas: 1692648)
+[PASS] test_vaultStaysFullyBacked() (gas: 2542222)
+[PASS] test_zeroTradingFee() (gas: 29166)
+Suite result: ok. 44 passed; 0 failed; 0 skipped; finished in 65.13ms (59.63ms CPU time)
+
+Ran 4 tests for test/InkRenderer.t.sol:InkRendererTest
+[PASS] test_agentTraitsMatchTheScript() (gas: 61655638)
+[PASS] test_poolTraitsMatchTheScript() (gas: 60491738)
+[PASS] test_scriptStoredInChunksAndLocked() (gas: 12171109)
+[PASS] test_tokenURIForAnAgentPortrait() (gas: 2711132)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 169.60ms (233.37ms CPU time)
+
+Ran 1 test for test/VaultInvariants.t.sol:VaultInvariantsTest
+[PASS]
+VaultInvariantsTest invariants:
+[PASS] invariant_agentBalancesMatch
+[PASS] invariant_bonusOncePerPortrait
+[PASS] invariant_capAndSlots
+[PASS] invariant_custody
+[PASS] invariant_fullyBacked
+[PASS] invariant_inkConserved
+[PASS] invariant_queueCovered
+ VaultInvariantsTest invariants (runs: 64, calls: 7680, reverts: 0)
+
+╭--------------+------------------+-------+---------+----------╮
+| Contract     | Selector         | Calls | Reverts | Discards |
++==============================================================+
+| VaultHandler | claim            | 545   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | deposit          | 540   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | moveSeat         | 547   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | pull             | 556   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | pullAll          | 549   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | pullTooMany      | 561   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | release          | 537   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | rerollTraits     | 536   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | reveal           | 607   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | revealNext       | 508   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | revealTraits     | 508   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | roll             | 574   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | setFees          | 564   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | transferPortrait | 548   | 0       | 0        |
+╰--------------+------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.27s (5.26s CPU time)
+
+Ran 12 test suites in 5.28s (5.56s CPU time): 52 tests passed, 0 failed, 27 skipped (79 total tests)
+
+
+=== Clean isolated run 2 ===
+$ forge build
+Compiling 175 files with Solc 0.8.26
+Solc 0.8.26 finished in 14.99s
+Compiler run successful with warnings:
+Warning (2519): This declaration shadows an existing declaration.
+  --> script/LocalStack.s.sol:95:26:
+   |
+95 |     function _deployHook(InkPortraits portraits, InkVault vault, address treasury) internal returns (InkHook) {
+   |                          ^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:38:5:
+   |
+38 |     InkPortraits portraits;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+  --> script/LocalStack.s.sol:95:50:
+   |
+95 |     function _deployHook(InkPortraits portraits, InkVault vault, address treasury) internal returns (InkHook) {
+   |                                                  ^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:39:5:
+   |
+39 |     InkVault vault;
+   |     ^^^^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+   --> script/LocalStack.s.sol:119:20:
+    |
+119 |     function _seed(PoolKey memory key, bool inkIs0, address to, ForkInk ink) internal {
+    |                    ^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:44:5:
+   |
+44 |     PoolKey key;
+   |     ^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+   --> script/LocalStack.s.sol:119:65:
+    |
+119 |     function _seed(PoolKey memory key, bool inkIs0, address to, ForkInk ink) internal {
+    |                                                                 ^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> script/LocalStack.s.sol:43:5:
+   |
+43 |     ForkInk ink;
+   |     ^^^^^^^^^^^
+
+
+$ forge test -vv
+No files changed, compilation skipped
+
+Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs0Test
+[SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
+[SKIP] test_fork_bigBuyAfterRelease() (gas: 0)
+[SKIP] test_fork_fullLifecycle() (gas: 0)
+[SKIP] test_fork_hookFeeExactInBuyIsInkAndBurned() (gas: 0)
+[SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
+[SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
+[SKIP] test_fork_sybilFirstHour() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 991.96µs (80.11µs CPU time)
+
+Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs1Test
+[SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
+[SKIP] test_fork_bigBuyAfterRelease() (gas: 0)
+[SKIP] test_fork_fullLifecycle() (gas: 0)
+[SKIP] test_fork_hookFeeExactInBuyIsInkAndBurned() (gas: 0)
+[SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
+[SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
+[SKIP] test_fork_sybilFirstHour() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 751.72µs (71.99µs CPU time)
+
+Ran 9 tests for test/SnapshotAllSeats.t.sol:SnapshotAllSeatsTest
+[SKIP] test_claims_0000() (gas: 0)
+[SKIP] test_claims_0250() (gas: 0)
+[SKIP] test_claims_0500() (gas: 0)
+[SKIP] test_claims_0750() (gas: 0)
+[SKIP] test_claims_1000() (gas: 0)
+[SKIP] test_claims_1250() (gas: 0)
+[SKIP] test_claims_1500() (gas: 0)
+[SKIP] test_claims_1750() (gas: 0)
+[SKIP] test_treeHasEverySeatOnce() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 9 skipped; finished in 368.52µs (204.85µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium5xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 743.39µs (10.01µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium1xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 685.78µs (25.36µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium2xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 695.57µs (24.06µs CPU time)
+
+Ran 2 tests for test/SnapshotProofs.t.sol:SnapshotProofsTest
+[PASS] test_realSnapshotProofsClaim() (gas: 3151956)
+[PASS] test_tamperedStatsAreRejected() (gas: 605229)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 16.22ms (8.36ms CPU time)
+
+Ran 1 test for test/TokenURIPreview.t.sol:TokenURIPreviewTest
+[PASS] test_writeTokenURIs() (gas: 25050347)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 69.63ms (69.41ms CPU time)
+
+Ran 44 tests for test/InkSystem.t.sol:InkSystemTest
+[PASS] test_agentBonusCappedAtFivePercent() (gas: 7425298)
+[PASS] test_agentBonusPaidOncePerPortrait() (gas: 27794920)
+[PASS] test_agentClaimsOwnPortraitFree() (gas: 285065)
+[PASS] test_agentDepositsPortraitForBonus() (gas: 2929526)
+[PASS] test_agentHoldersPayNoHookFee() (gas: 1406290)
+[PASS] test_agentHoldersRerollForHalf() (gas: 2727978)
+[PASS] test_borrowedAgentPortraitGetsNoWaiver() (gas: 1224300)
+[PASS] test_cantLockAnEmptyRenderer() (gas: 2845617)
+[PASS] test_claimRules() (gas: 432895)
+[PASS] test_collectFeesPaysImdToOwnerAndBurnsInk() (gas: 1770318)
+[PASS] test_contractWalletSeatCanClaim() (gas: 361014)
+[PASS] test_depositAfterPullCannotSteerTheDraw() (gas: 2429037)
+[PASS] test_depositMinOut() (gas: 1682173)
+[PASS] test_depositedAgentPortraitIsPullable() (gas: 1956160)
+[PASS] test_expiredPullIsRenewedNotSkipped() (gas: 1444374)
+[PASS] test_gasAtScale() (gas: 51878921)
+Logs:
+  pull(1) gas: 135128
+  revealNext(1) gas: 172586
+    per reveal: 172586
+  pull(10) gas: 321926
+  revealNext(10) gas: 670983
+    per reveal: 67098
+  pull(100) gas: 2532063
+  revealNext(100) gas: 6170452
+    per reveal: 61704
+  pull(400) gas: 9901254
+  revealNext(400) gas: 24534936
+    per reveal: 61337
+  deposit(100 portraits) gas: 6427402
+
+[PASS] test_guards() (gas: 9588683)
+[PASS] test_hookFeeImdToTreasury() (gas: 914424)
+[PASS] test_hookFeeInkIsBurned() (gas: 1401630)
+[PASS] test_idleSeatClaimsToo() (gas: 200995)
+[PASS] test_launchSplit() (gas: 67226)
+[PASS] test_liquidityFloorHoldsIfPriceIsDragged() (gas: 3051238)
+[PASS] test_noPerWalletLimitAfterRelease() (gas: 833757)
+[PASS] test_noPullsUntilRelease() (gas: 883096)
+[PASS] test_onlyOnePool() (gas: 46300)
+[PASS] test_ownerIsOwnerWalletNotDeployer() (gas: 6178485)
+[PASS] test_poolLockedUntilRelease() (gas: 1327156)
+[PASS] test_poolNeverOpensWithoutRelease() (gas: 1185916)
+[PASS] test_premiumBeforePoolCannotBeFrontRun() (gas: 4205374)
+[PASS] test_pullRerollPullAgain() (gas: 2470466)
+[PASS] test_releasePremiumListsAboveTheOpeningPrice() (gas: 639572)
+[PASS] test_releaseTurnsUnclaimedSeatsIntoSlotsAndPoolInk() (gas: 753757)
+[PASS] test_revealIsNotEarlyAndNotTwice() (gas: 1277654)
+[PASS] test_revealsGoInOrder() (gas: 1486719)
+[PASS] test_seatSoldDuringWindowNewOwnerClaims() (gas: 275224)
+[PASS] test_setupRules() (gas: 2663927)
+[PASS] test_setupStartMustBeSoon() (gas: 2763939)
+[PASS] test_traitRerollBeforeReleaseReverts() (gas: 39966)
+[PASS] test_traitRerollExpiredHashRenews() (gas: 1666894)
+[PASS] test_traitRerollGuards() (gas: 2086456)
+[PASS] test_traitRerollHalfPriceForAgentHolders() (gas: 1774610)
+[PASS] test_traitRerollRepaintsSameToken() (gas: 1692648)
+[PASS] test_vaultStaysFullyBacked() (gas: 2542222)
+[PASS] test_zeroTradingFee() (gas: 29166)
+Suite result: ok. 44 passed; 0 failed; 0 skipped; finished in 100.05ms (93.30ms CPU time)
+
+Ran 1 test for test/LaunchDay.t.sol:LaunchDayTest
+[SKIP] test_fork_launchDay() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 871.76µs (15.52µs CPU time)
+
+Ran 4 tests for test/InkRenderer.t.sol:InkRendererTest
+[PASS] test_agentTraitsMatchTheScript() (gas: 61655638)
+[PASS] test_poolTraitsMatchTheScript() (gas: 60491738)
+[PASS] test_scriptStoredInChunksAndLocked() (gas: 12171109)
+[PASS] test_tokenURIForAnAgentPortrait() (gas: 2711132)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 201.20ms (245.81ms CPU time)
+
+Ran 1 test for test/VaultInvariants.t.sol:VaultInvariantsTest
+[PASS]
+VaultInvariantsTest invariants:
+[PASS] invariant_agentBalancesMatch
+[PASS] invariant_bonusOncePerPortrait
+[PASS] invariant_capAndSlots
+[PASS] invariant_custody
+[PASS] invariant_fullyBacked
+[PASS] invariant_inkConserved
+[PASS] invariant_queueCovered
+ VaultInvariantsTest invariants (runs: 64, calls: 7680, reverts: 0)
+
+╭--------------+------------------+-------+---------+----------╮
+| Contract     | Selector         | Calls | Reverts | Discards |
++==============================================================+
+| VaultHandler | claim            | 531   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | deposit          | 553   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | moveSeat         | 582   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | pull             | 565   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | pullAll          | 568   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | pullTooMany      | 541   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | release          | 561   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | rerollTraits     | 566   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | reveal           | 546   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | revealNext       | 548   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | revealTraits     | 550   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | roll             | 560   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | setFees          | 509   | 0       | 0        |
+|--------------+------------------+-------+---------+----------|
+| VaultHandler | transferPortrait | 500   | 0       | 0        |
+╰--------------+------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.39s (4.39s CPU time)
+
+Ran 12 test suites in 4.40s (4.79s CPU time): 52 tests passed, 0 failed, 27 skipped (79 total tests)

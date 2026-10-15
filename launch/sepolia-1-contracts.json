@@ -1,0 +1,31 @@
+{
+  "action": "launch.open",
+  "input": {
+    "objective": "Deploy the NFT, vault, liquidity contract and renderer from this repository on Sepolia, in this order, with no changes to their logic: (1) TestSeats from src/testnet/TestSeats.sol with no constructor arguments; (2) InkPortraits with constructor ($owner); (3) InkVault with constructor ($contract:InkPortraits, $contract:TestSeats, $owner); (4) InkLiquidity with constructor (the official Uniswap v4 PoolManager on this chain, the official Uniswap v4 PositionManager on this chain, $owner); (5) InkRenderer with constructor ($contract:InkPortraits, $owner). Run the existing Foundry tests before deploying. Owner roles and royalties must go to $owner, the address in the owner field, never to the deploying wallet or any swarm address. Do not add any other owner, admin or upgrade role.",
+    "repoUrl": "REPLACE_WITH_REPO_URL",
+    "baseCommit": "REPLACE_WITH_COMMIT",
+    "contracts": [
+      "src/testnet/TestSeats.sol",
+      "src/InkPortraits.sol",
+      "src/InkVault.sol",
+      "src/InkLiquidity.sol",
+      "src/InkRenderer.sol"
+    ],
+    "onchain": "evm_contracts",
+    "chainId": 11155111,
+    "owner": "REPLACE_WITH_OWNER_ADDRESS_LOWERCASE",
+    "github": true,
+    "shape": "chain",
+    "steps": [
+      {
+        "skill": "audit-imported-code"
+      },
+      {
+        "skill": "adapt-contract-project"
+      },
+      {
+        "skill": "adversarial-review"
+      }
+    ]
+  }
+}

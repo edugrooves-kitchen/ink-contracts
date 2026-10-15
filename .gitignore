@@ -1,0 +1,7 @@
+out/
+cache/
+broadcast/
+out-preview/
+.env
+.env.*
+node_modules/

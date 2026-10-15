@@ -1,0 +1,30 @@
+{
+  "action": "launch.open",
+  "input": {
+    "objective": "Deploy the NFT, vault, liquidity contract and renderer from this repository on Ethereum mainnet, in this order, with no changes to their logic: (1) InkPortraits with constructor ($owner); (2) InkVault with constructor ($contract:InkPortraits, 0x0000ec93127baa929e58e97dd0095a2bfb38ec1d, $owner); (3) InkLiquidity with constructor (the official Uniswap v4 PoolManager on this chain, the official Uniswap v4 PositionManager on this chain, $owner); (4) InkRenderer with constructor ($contract:InkPortraits, $owner). Run the existing Foundry tests before deploying. Owner roles and royalties must go to $owner, the address in the owner field, never to the deploying wallet or any swarm address. Do not add any other owner, admin or upgrade role. Do not deploy src/testnet.",
+    "repoUrl": "REPLACE_WITH_REPO_URL",
+    "baseCommit": "REPLACE_WITH_COMMIT",
+    "contracts": [
+      "src/InkPortraits.sol",
+      "src/InkVault.sol",
+      "src/InkLiquidity.sol",
+      "src/InkRenderer.sol"
+    ],
+    "onchain": "evm_contracts",
+    "chainId": 1,
+    "owner": "REPLACE_WITH_OWNER_ADDRESS_LOWERCASE",
+    "github": true,
+    "shape": "chain",
+    "steps": [
+      {
+        "skill": "audit-imported-code"
+      },
+      {
+        "skill": "adapt-contract-project"
+      },
+      {
+        "skill": "adversarial-review"
+      }
+    ]
+  }
+}

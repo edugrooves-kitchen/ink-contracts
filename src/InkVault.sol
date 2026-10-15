@@ -1,0 +1,428 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {InkPortraits} from "./InkPortraits.sol";
+
+interface IInkLiquidity {
+    function addLiquidity() external returns (uint256 positionId);
+}
+
+/// @title Ink vault
+/// @notice 400,000 INK is one portrait, and at most 2,000 can ever exist. INK is created by the IMD swarm's v4
+/// launch, which sends 80% of the supply here: a full portrait's worth for each of the 2,000 identity.md
+/// seats. The pool stays closed until release().
+/// - Claim (first 24 hours, free): the current owner of any seat mints that seat's agent portrait, painted
+///   from its work record (a Sketch if it has little or none). One per seat. The seat's 400,000 INK stays
+///   here, backing the portrait.
+/// - Release (after 24 hours): every unclaimed seat becomes a swarm slot, its 400,000 INK is added to the
+///   pool, and the pool opens for trading (the hook waits for released()).
+/// - Pull (after release): lock 400,000 INK to get a random portrait. The pick comes from the hash of the
+///   block after the pull, so it can't be known (or retried) when the INK is spent. Anyone can reveal it.
+///   Pulls are revealed strictly in order, and a portrait handed in only joins the draw for pulls made in
+///   later blocks, so once a block hash is public nobody can change what it picks.
+/// - Reroll: hand a swarm portrait back for 400,000 INK minus a fee. The fee goes into the bonus pot.
+///   Holders of an agent portrait pay half.
+/// - Trait reroll: pay the same fee (into the same pot) to give a swarm portrait you hold a new random seed,
+///   drawn from the hash of the block after the request like a pull. Same token, new art and traits.
+/// - Agent deposit: hand an agent portrait in for 400,000 INK plus a bonus from the pot (up to 5%), paid
+///   once per agent portrait. It joins the pool, so any pull can land a one-of-a-kind agent portrait.
+/// Every portrait outside the vault is backed by 400,000 INK inside it.
+contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
+    using SafeERC20 for IERC20;
+
+    uint256 public constant PORTRAIT = 400_000e18;
+    uint256 public constant SEATS = 2000;
+    uint64 public constant CLAIM_WINDOW = 24 hours;
+    uint16 public constant MAX_FEE_BPS = 500;
+    /// @notice The claim window must open within this long of setup().
+    uint64 public constant MAX_START_DELAY = 30 days;
+
+    struct Pull {
+        address to;
+        uint64 blockNumber;
+        bool done;
+    }
+
+    /// @dev A portrait handed in, waiting to join the draw.
+    struct Incoming {
+        uint256 tokenId;
+        uint64 blockNumber;
+    }
+
+    enum Step {
+        Revealed,
+        TooEarly,
+        Renewed
+    }
+
+    InkPortraits public immutable portraits;
+    IERC721 public immutable seats;
+
+    /// @notice INK, set once after the swarm launch creates it.
+    IERC20 public ink;
+    /// @notice Gets the unclaimed seats' INK after the window, to add to the pool.
+    address public liquidity;
+
+    // Set once by setup().
+    /// @notice Root of every seat's stats (OpenZeppelin StandardMerkleTree, double-hashed leaves of
+    /// abi.encode(uint256 seat, uint32 accepted, uint16 rateBps, uint32 turns, uint32 hoursTenths, bool outdated)).
+    /// Seats with no work are in it too, with zeros.
+    bytes32 public statsRoot;
+    uint64 public claimStart;
+    uint64 public claimEnd;
+
+    uint16 public rerollFeeBps = 100;
+    uint16 public agentRerollFeeBps = 50;
+    /// @notice Bonus for depositing an agent portrait, paid from the bonus pot while it lasts.
+    uint16 public agentDepositBonusBps = 500;
+    /// @notice Reroll fees collected to pay agent-deposit bonuses.
+    uint256 public bonusPot;
+
+    bool public released;
+    /// @dev Portraits a pull can land on.
+    uint256[] internal _inventory;
+    /// @dev Portraits handed in that join `_inventory` for pulls made in a later block.
+    Incoming[] internal _incoming;
+    uint256 internal _incomingHead;
+    Pull[] public pulls;
+    /// @notice The next pull to reveal. Pulls are revealed in order.
+    uint256 public nextReveal;
+    /// @notice Agent portraits that have already earned their deposit bonus.
+    mapping(uint256 tokenId => bool) public bonusPaid;
+    /// @notice The block of a swarm portrait's pending trait reroll; 0 when none is pending.
+    mapping(uint256 tokenId => uint64) public traitRerollBlock;
+
+    event InkSet(address ink);
+    event Setup(bytes32 statsRoot, uint64 claimStart, uint64 claimEnd, address liquidity);
+    event AgentClaimed(uint256 indexed seat, address indexed to);
+    event Released(uint256 unclaimedSeats, uint256 inkToPool);
+    event Pulled(uint256 indexed pullId, address indexed to, uint64 blockNumber);
+    event PullRenewed(uint256 indexed pullId, uint64 blockNumber);
+    event Revealed(uint256 indexed pullId, address indexed to, uint256 tokenId, bool newlyMinted);
+    event Deposited(address indexed from, uint256 indexed tokenId, uint256 inkOut, int256 feeOrBonus);
+    event TraitRerollRequested(uint256 indexed tokenId, address indexed by, uint256 fee, uint64 blockNumber);
+    event TraitRerollRenewed(uint256 indexed tokenId, uint64 blockNumber);
+    event TraitsRerolled(uint256 indexed tokenId, bytes32 seed);
+    event FeesSet(uint16 rerollFeeBps, uint16 agentRerollFeeBps, uint16 agentDepositBonusBps);
+
+    error InkAlreadySet();
+    error InkNotSet();
+    error NotFunded();
+    error AlreadySetUp();
+    error BadSetup();
+    error ClaimClosed();
+    error ClaimStillOpen();
+    error AlreadyReleased();
+    error NotSeatOwner();
+    error InvalidProof();
+    error ZeroPulls();
+    error UnknownPull();
+    error AlreadyRevealed();
+    error TooEarly();
+    error NoneAvailable();
+    error FeeTooHigh();
+    error NotReleased();
+    error BelowMinOut();
+    error NotYourPortrait();
+    error AgentPortrait();
+    error RerollPending();
+    error NoRerollPending();
+
+    constructor(InkPortraits portraits_, IERC721 seats_, address owner_) Ownable(owner_) {
+        portraits = portraits_;
+        seats = seats_;
+    }
+
+    // ---------------------------------------------------------------- owner
+
+    /// @notice Points the vault at INK once the swarm launch has created it.
+    function setInk(IERC20 ink_) external onlyOwner {
+        if (address(ink) != address(0)) revert InkAlreadySet();
+        ink = ink_;
+        emit InkSet(address(ink_));
+    }
+
+    /// @notice One-time setup: the stats list, when the 24-hour window starts, and the liquidity
+    /// contract. The vault must already hold the 400,000 INK allocation for every seat.
+    function setup(bytes32 root, uint64 start, address liquidity_) external onlyOwner {
+        if (address(ink) == address(0)) revert InkNotSet();
+        if (statsRoot != bytes32(0)) revert AlreadySetUp();
+        if (
+            root == bytes32(0) || liquidity_ == address(0) || start < block.timestamp
+                || start > block.timestamp + MAX_START_DELAY
+        ) revert BadSetup();
+        if (ink.balanceOf(address(this)) < SEATS * PORTRAIT) revert NotFunded();
+        statsRoot = root;
+        claimStart = start;
+        claimEnd = start + CLAIM_WINDOW;
+        liquidity = liquidity_;
+        emit Setup(root, start, claimEnd, liquidity_);
+    }
+
+    function setFees(uint16 baseBps, uint16 agentBps, uint16 bonusBps) external onlyOwner {
+        if (baseBps > MAX_FEE_BPS || agentBps > baseBps || bonusBps > MAX_FEE_BPS * 2) revert FeeTooHigh();
+        rerollFeeBps = baseBps;
+        agentRerollFeeBps = agentBps;
+        agentDepositBonusBps = bonusBps;
+        emit FeesSet(baseBps, agentBps, bonusBps);
+    }
+
+    // ---------------------------------------------------------------- agent portraits
+
+    function claimOpen() public view returns (bool) {
+        return statsRoot != bytes32(0) && block.timestamp >= claimStart && block.timestamp < claimEnd;
+    }
+
+    /// @notice Mints a seat's agent portrait to the seat's current owner, free. The seat's 400,000 INK stays
+    /// in the vault as the portrait's backing. Once per seat (the portrait's token id is the seat number).
+    function claim(uint256 seat, InkPortraits.AgentStats calldata stats, bytes32[] calldata proof)
+        external
+        nonReentrant
+    {
+        if (!claimOpen()) revert ClaimClosed();
+        if (seats.ownerOf(seat) != msg.sender) revert NotSeatOwner();
+        bytes32 leaf = keccak256(
+            bytes.concat(
+                keccak256(
+                    abi.encode(seat, stats.accepted, stats.rateBps, stats.turns, stats.hoursTenths, stats.outdated)
+                )
+            )
+        );
+        if (!MerkleProof.verifyCalldata(proof, statsRoot, leaf)) revert InvalidProof();
+        portraits.mintAgent(seat, msg.sender, stats); // reverts if this seat was already claimed
+        emit AgentClaimed(seat, msg.sender);
+    }
+
+    /// @notice After the window: unclaimed seats become swarm slots and their INK is added to the pool, which
+    /// opens the pool for trading. Anyone can call it, once.
+    function release() external nonReentrant returns (uint256 inkToPool) {
+        if (statsRoot == bytes32(0)) revert InkNotSet();
+        if (block.timestamp < claimEnd) revert ClaimStillOpen();
+        if (released) revert AlreadyReleased();
+        released = true;
+        uint256 unclaimed = SEATS - portraits.agentMinted();
+        inkToPool = unclaimed * PORTRAIT;
+        if (inkToPool > 0) {
+            ink.safeTransfer(liquidity, inkToPool);
+            IInkLiquidity(liquidity).addLiquidity();
+        }
+        emit Released(unclaimed, inkToPool);
+    }
+
+    // ---------------------------------------------------------------- swarm: pull and reveal
+
+    /// @notice How many swarm portraits can exist: none during the window, then one per unclaimed seat.
+    function swarmSlots() public view returns (uint256) {
+        if (statsRoot == bytes32(0) || block.timestamp < claimEnd) return 0;
+        return SEATS - portraits.agentMinted();
+    }
+
+    /// @notice Swarm portraits a pull could land on right now: the vault's inventory plus unminted ones.
+    function available() public view returns (uint256) {
+        return _inventory.length + swarmSlots() - portraits.swarmMinted();
+    }
+
+    /// @notice Locks 400,000 INK per pull and queues that many random portraits. Opens at release, and only
+    /// while there are enough portraits (unminted slots, the vault's inventory and ones waiting to join it) for
+    /// every queued pull.
+    function pull(uint256 count) external nonReentrant returns (uint256 firstPullId) {
+        if (!released) revert NotReleased();
+        if (count == 0) revert ZeroPulls();
+        // Every queued pull must have a portrait to land on, so no INK waits on a pull that can't be filled.
+        if (pulls.length - nextReveal + count > available() + _incoming.length - _incomingHead) revert NoneAvailable();
+        ink.safeTransferFrom(msg.sender, address(this), count * PORTRAIT);
+        firstPullId = pulls.length;
+        for (uint256 i; i < count; i++) {
+            pulls.push(Pull({to: msg.sender, blockNumber: uint64(block.number), done: false}));
+            emit Pulled(firstPullId + i, msg.sender, uint64(block.number));
+        }
+    }
+
+    /// @notice Reveals every pull up to and including `pullId`, in order. Anyone can call it; each portrait
+    /// goes to its puller (without the ERC-721 receiver check, so a contract puller can't veto its draw).
+    /// Stops early, keeping what it did, when a pull has to be renewed: its block hash is older than 256
+    /// blocks, or no portrait is free. A renewed pull is drawn from a later block.
+    /// @return done Whether `pullId` itself was revealed.
+    function reveal(uint256 pullId) external nonReentrant returns (bool done) {
+        if (pullId >= pulls.length) revert UnknownPull();
+        if (pullId < nextReveal) revert AlreadyRevealed();
+        bool progressed;
+        while (nextReveal <= pullId) {
+            Step step = _revealNext();
+            if (step == Step.TooEarly) {
+                if (!progressed) revert TooEarly();
+                return false;
+            }
+            if (step == Step.Renewed) return false;
+            progressed = true;
+        }
+        return true;
+    }
+
+    /// @notice Reveals up to `max` pulls in order; for working through a long queue in several calls.
+    function revealNext(uint256 max) external nonReentrant returns (uint256 revealed) {
+        while (revealed < max && nextReveal < pulls.length) {
+            if (_revealNext() != Step.Revealed) break;
+            revealed++;
+        }
+    }
+
+    function _revealNext() internal returns (Step) {
+        uint256 pullId = nextReveal;
+        Pull storage p = pulls[pullId];
+        if (block.number <= uint256(p.blockNumber) + 1) return Step.TooEarly;
+
+        bytes32 entropy = blockhash(uint256(p.blockNumber) + 1);
+        // Portraits handed in before this pull's block join the draw; later ones wait for later pulls.
+        _admit(p.blockNumber);
+        uint256 avail = available();
+        if (entropy == bytes32(0) || avail == 0) {
+            p.blockNumber = uint64(block.number);
+            emit PullRenewed(pullId, p.blockNumber);
+            return Step.Renewed;
+        }
+        p.done = true;
+        nextReveal = pullId + 1;
+        uint256 r = uint256(keccak256(abi.encode(entropy, pullId)));
+        uint256 held = _inventory.length;
+        uint256 pick = r % avail;
+
+        if (pick < held) {
+            uint256 tokenId = _inventory[pick];
+            _inventory[pick] = _inventory[held - 1];
+            _inventory.pop();
+            portraits.transferFrom(address(this), p.to, tokenId);
+            emit Revealed(pullId, p.to, tokenId, false);
+        } else {
+            uint256 tokenId = portraits.mintSwarm(p.to, keccak256(abi.encode(entropy, pullId, "seed")));
+            emit Revealed(pullId, p.to, tokenId, true);
+        }
+        return Step.Revealed;
+    }
+
+    function _admit(uint64 beforeBlock) internal {
+        uint256 head = _incomingHead;
+        uint256 end = _incoming.length;
+        while (head < end && _incoming[head].blockNumber < beforeBlock) {
+            _inventory.push(_incoming[head].tokenId);
+            delete _incoming[head];
+            head++;
+        }
+        _incomingHead = head;
+    }
+
+    // ---------------------------------------------------------------- deposits: rerolls and agent portraits
+
+    /// @notice Hands portraits to the vault, where pulls made from the next block on can land them.
+    /// - A swarm portrait returns 400,000 INK minus the reroll fee (lower for agent-portrait holders); the fee
+    ///   goes into the bonus pot.
+    /// - An agent portrait returns 400,000 INK plus a bonus from the pot, while it lasts. Each agent portrait
+    ///   earns the bonus once; handing it in again (after someone pulls it) returns 400,000 INK.
+    /// @param minOut Reverts if the INK paid out would be less (fees can change between signing and mining).
+    function deposit(uint256[] calldata tokenIds, uint256 minOut) external nonReentrant returns (uint256 inkOut) {
+        // Read before the transfers: handing in your only agent portrait still counts for the discount.
+        bool agentHolder = portraits.isAgentHolder(msg.sender);
+        for (uint256 i; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
+            if (traitRerollBlock[tokenId] != 0) revert RerollPending();
+            portraits.transferFrom(msg.sender, address(this), tokenId);
+            _incoming.push(Incoming({tokenId: tokenId, blockNumber: uint64(block.number)}));
+
+            if (portraits.isAgentPortrait(tokenId)) {
+                uint256 bonus;
+                if (!bonusPaid[tokenId]) {
+                    bonus = (PORTRAIT * agentDepositBonusBps) / 10_000;
+                    if (bonus > bonusPot) bonus = bonusPot;
+                    if (bonus > 0) {
+                        bonusPaid[tokenId] = true;
+                        bonusPot -= bonus;
+                    }
+                }
+                inkOut += PORTRAIT + bonus;
+                emit Deposited(msg.sender, tokenId, PORTRAIT + bonus, int256(bonus));
+            } else {
+                uint256 fee = (PORTRAIT * (agentHolder ? agentRerollFeeBps : rerollFeeBps)) / 10_000;
+                bonusPot += fee;
+                inkOut += PORTRAIT - fee;
+                emit Deposited(msg.sender, tokenId, PORTRAIT - fee, -int256(fee));
+            }
+        }
+        if (inkOut < minOut) revert BelowMinOut();
+        ink.safeTransfer(msg.sender, inkOut);
+    }
+
+    // ---------------------------------------------------------------- trait rerolls
+
+    /// @notice Pays the reroll fee (lower for agent-portrait holders) to repaint a swarm portrait you hold
+    /// with a new random seed. The seed comes from the hash of the next block, so it can't be known when the
+    /// fee is paid; anyone can reveal it with revealTraits(). The portrait can't be handed in meanwhile.
+    /// @param maxFee Reverts if the fee would be more (fees can change between signing and mining).
+    function rerollTraits(uint256 tokenId, uint256 maxFee) external nonReentrant returns (uint256 fee) {
+        if (!released) revert NotReleased();
+        if (portraits.isAgentPortrait(tokenId)) revert AgentPortrait();
+        if (portraits.ownerOf(tokenId) != msg.sender) revert NotYourPortrait();
+        if (traitRerollBlock[tokenId] != 0) revert RerollPending();
+        fee = (PORTRAIT * (portraits.isAgentHolder(msg.sender) ? agentRerollFeeBps : rerollFeeBps)) / 10_000;
+        if (fee > maxFee) revert FeeTooHigh();
+        traitRerollBlock[tokenId] = uint64(block.number);
+        bonusPot += fee;
+        ink.safeTransferFrom(msg.sender, address(this), fee);
+        emit TraitRerollRequested(tokenId, msg.sender, fee, uint64(block.number));
+    }
+
+    /// @notice Applies a pending trait reroll once its block hash is known. Anyone can call it. If the hash
+    /// has expired (older than 256 blocks) the reroll is renewed from a later block instead.
+    /// @return done Whether the portrait was repainted.
+    function revealTraits(uint256 tokenId) external nonReentrant returns (bool done) {
+        uint64 b = traitRerollBlock[tokenId];
+        if (b == 0) revert NoRerollPending();
+        if (block.number <= uint256(b) + 1) revert TooEarly();
+        bytes32 entropy = blockhash(uint256(b) + 1);
+        if (entropy == bytes32(0)) {
+            traitRerollBlock[tokenId] = uint64(block.number);
+            emit TraitRerollRenewed(tokenId, uint64(block.number));
+            return false;
+        }
+        delete traitRerollBlock[tokenId];
+        bytes32 seed = keccak256(abi.encode(entropy, tokenId, "traits"));
+        portraits.setSwarmSeed(tokenId, seed);
+        emit TraitsRerolled(tokenId, seed);
+        return true;
+    }
+
+    // ---------------------------------------------------------------- views
+
+    /// @notice Portraits a pull can land on now (excludes ones handed in that haven't joined yet).
+    function inventorySize() external view returns (uint256) {
+        return _inventory.length;
+    }
+
+    /// @notice Every portrait the vault holds: the draw inventory plus ones waiting to join it.
+    function heldCount() external view returns (uint256) {
+        return _inventory.length + _incoming.length - _incomingHead;
+    }
+
+    /// @notice Portraits handed in that join the draw for pulls made after their block.
+    function waitingCount() external view returns (uint256) {
+        return _incoming.length - _incomingHead;
+    }
+
+    function inventoryAt(uint256 index) external view returns (uint256) {
+        return _inventory[index];
+    }
+
+    function pullCount() external view returns (uint256) {
+        return pulls.length;
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+}
