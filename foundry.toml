@@ -10,7 +10,7 @@ optimizer = true
 optimizer_runs = 200
 via_ir = false
 bytecode_hash = "none" # required by IMD repository imports
-fs_permissions = [{ access = "read", path = "./" }, { access = "read-write", path = "./out-preview" }]
+fs_permissions = [{ access = "read", path = "./" }]
 
 [fmt]
 line_length = 110
@@ -27,3 +27,7 @@ fail_on_revert = true
 runs = 512
 depth = 300
 fail_on_revert = true
+
+# FOUNDRY_PROFILE=preview forge test --mt test_writeTokenURIs: writes out-preview/*.txt
+[profile.preview]
+fs_permissions = [{ access = "read", path = "./" }, { access = "read-write", path = "./out-preview" }]

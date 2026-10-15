@@ -30,7 +30,8 @@ forge test -vv
 
 Solidity 0.8.26 may be downloaded by Foundry if not already installed. No RPC, wallet,
 real metrics, Node dependencies or funded account is required to build/test.
-Tests can write previews to `out-preview/`; it is ignored and excluded from the archive.
+The default profile is read-only. `FOUNDRY_PROFILE=preview forge test --mt test_writeTokenURIs` also writes
+the rendered tokenURIs to `out-preview/` to open by eye; it is ignored and excluded from the archive.
 
 The build uses Cancun, optimizer 200, no via-IR and bytecode_hash none, as in the source project.
 Production bytecode was compared across two clean builds; see BYTECODE_HASHES.json.

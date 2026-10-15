@@ -3,7 +3,7 @@
     "path": "foundry.toml",
     "workspaceSource": "contracts/foundry.toml",
     "sourceSha256": "b5bf1cccac1861361afe2622e20be83d650545f269cf453ad2e53287baf7c8a1",
-    "packagedSha256": "c97cfce617f9a349b83b90a3282560c7ea4c3044b63110e8a8a5a0c2456f8d37",
+    "packagedSha256": "b540053304fdb0dd4b67898de5804c215caa2d7f51d720ed97cc730d1938d7eb",
     "changedForPortability": true
   },
   {
@@ -107,8 +107,8 @@
   {
     "path": "test/TokenURIPreview.t.sol",
     "workspaceSource": "contracts/test/TokenURIPreview.t.sol",
-    "sourceSha256": "443ce7da4808ad0b8589ee89e8c32c56faf435d0d1a6368d40806ad6a764b537",
-    "packagedSha256": "443ce7da4808ad0b8589ee89e8c32c56faf435d0d1a6368d40806ad6a764b537",
+    "sourceSha256": "86586a53126c3a8bf488f2be671fca4f9aa3c986f9a19f5d053b34cf3fe74cd6",
+    "packagedSha256": "86586a53126c3a8bf488f2be671fca4f9aa3c986f9a19f5d053b34cf3fe74cd6",
     "changedForPortability": false
   },
   {

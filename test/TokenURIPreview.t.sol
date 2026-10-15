@@ -50,11 +50,21 @@ contract TokenURIPreviewTest is Test {
         seats.mint(holder, 280);
         vm.prank(holder);
         vault.claim(280, s, new bytes32[](0));
-        vm.writeFile("out-preview/agent-280.txt", portraits.tokenURI(280));
+        _check("out-preview/agent-280.txt", portraits.tokenURI(280));
 
         // A pool portrait, minted straight from the vault's address.
         vm.prank(address(vault));
         uint256 poolId = portraits.mintSwarm(holder, keccak256("preview pool seed"));
-        vm.writeFile("out-preview/pool.txt", portraits.tokenURI(poolId));
+        _check("out-preview/pool.txt", portraits.tokenURI(poolId));
+    }
+
+    /// Asserts a real JSON data URI, then saves it if this profile may write (read-only profiles just log).
+    function _check(string memory path, string memory uri) internal {
+        assertTrue(vm.contains(uri, "data:application/json;base64,"), "tokenURI is a JSON data URI");
+        assertGt(bytes(uri).length, 10_000, "tokenURI carries the art");
+        try vm.writeFile(path, uri) {}
+        catch {
+            emit log_string(string.concat("read-only profile: not written ", path, " (use FOUNDRY_PROFILE=preview)"));
+        }
     }
 }
