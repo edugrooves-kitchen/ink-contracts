@@ -162,7 +162,7 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
                 k -= free;
                 continue;
             }
-            for (uint256 b; ; b++) {
+            for (uint256 b;; b++) {
                 if (open & (1 << b) != 0) {
                     if (k == 0) return w * 256 + b;
                     k--;

@@ -663,6 +663,32 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         assertEq(ink.balanceOf(address(vault)), outside * PORTRAIT);
     }
 
+    /// Swarm audit judge (Sepolia launch job 0afb11c1, medium): renewing the head pull admitted deposits made
+    /// after a queued pull's block hash was public into that queued pull's draw. The queued pull is now renewed
+    /// instead, so it draws from a block after every portrait it could land on.
+    function test_renewedHeadKeepsLaterDepositsOutOfQueuedDraws() public {
+        _releaseAndTrade();
+        _buyInk(buyer, PORTRAIT);
+        uint256 junk = _pullAndReveal(buyer);
+        _buyInk(buyer, 2 * PORTRAIT);
+        uint256 start = block.number;
+        uint256 a = _pull(buyer, 1);
+        vm.roll(start + 3);
+        uint256 b = _pull(buyer, 1);
+        vm.roll(start + 10); // b's block hash is public now
+        _deposit(buyer, junk);
+        vm.roll(start + 258); // a's block hash has expired, b's hasn't
+        assertFalse(vault.reveal(a), "a renewed");
+        vm.roll(start + 260);
+
+        assertFalse(vault.reveal(b), "a revealed, b renewed rather than drawn over the late deposit");
+        (, uint64 bBlock, bool bDone) = vault.pulls(b);
+        assertFalse(bDone);
+        assertEq(bBlock, block.number);
+        vm.roll(block.number + 2);
+        assertTrue(vault.reveal(b));
+    }
+
     function test_revealIsNotEarlyAndNotTwice() public {
         _release();
         _buyInk(buyer, PORTRAIT);

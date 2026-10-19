@@ -23,8 +23,8 @@
   {
     "path": "src/InkHook.sol",
     "workspaceSource": "contracts/src/InkHook.sol",
-    "sourceSha256": "452b046596622bccacbf6fc17fcf3c770c62658f173db5dc00a444ebc09db1fc",
-    "packagedSha256": "452b046596622bccacbf6fc17fcf3c770c62658f173db5dc00a444ebc09db1fc",
+    "sourceSha256": "b7693237e32135f9e9b355a97ed7236010034c0b3c97aba3fa90178cbb10b250",
+    "packagedSha256": "b7693237e32135f9e9b355a97ed7236010034c0b3c97aba3fa90178cbb10b250",
     "changedForPortability": false
   },
   {
@@ -37,8 +37,8 @@
   {
     "path": "src/InkPortraits.sol",
     "workspaceSource": "contracts/src/InkPortraits.sol",
-    "sourceSha256": "f2f08c84af47f36419a01e56b4a61177c01efc59fc5c10b52f20af7aad13f056",
-    "packagedSha256": "f2f08c84af47f36419a01e56b4a61177c01efc59fc5c10b52f20af7aad13f056",
+    "sourceSha256": "2caa4a693685d4c7fe4eb388aa37201920041b4bf5539522ecbe6ce40637bd5c",
+    "packagedSha256": "2caa4a693685d4c7fe4eb388aa37201920041b4bf5539522ecbe6ce40637bd5c",
     "changedForPortability": false
   },
   {
@@ -51,8 +51,8 @@
   {
     "path": "src/InkVault.sol",
     "workspaceSource": "contracts/src/InkVault.sol",
-    "sourceSha256": "f718af1f57d5cb0af4edf338d77f797696ba5920d17e48d708756161c6a917e4",
-    "packagedSha256": "f718af1f57d5cb0af4edf338d77f797696ba5920d17e48d708756161c6a917e4",
+    "sourceSha256": "8acc6e3fe1353c2e271c9940ccc0368373979d1e963a7a37752c84fdb0bc9be1",
+    "packagedSha256": "8acc6e3fe1353c2e271c9940ccc0368373979d1e963a7a37752c84fdb0bc9be1",
     "changedForPortability": false
   },
   {
@@ -72,8 +72,8 @@
   {
     "path": "test/InkSystem.t.sol",
     "workspaceSource": "contracts/test/InkSystem.t.sol",
-    "sourceSha256": "2bc3670221f2bf9e221da93cefdc001207f645ca1ab8236e83b5832a79458f04",
-    "packagedSha256": "2bc3670221f2bf9e221da93cefdc001207f645ca1ab8236e83b5832a79458f04",
+    "sourceSha256": "beed36e3f0485081db4598f65d9c90317cd64d57604b702359fc74ade51d6bf9",
+    "packagedSha256": "beed36e3f0485081db4598f65d9c90317cd64d57604b702359fc74ade51d6bf9",
     "changedForPortability": false
   },
   {

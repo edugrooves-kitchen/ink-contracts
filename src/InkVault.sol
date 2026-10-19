@@ -87,6 +87,8 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     /// @dev Portraits handed in that join `_inventory` for pulls made in a later block.
     Incoming[] internal _incoming;
     uint256 internal _incomingHead;
+    /// @dev Every portrait handed in before this block has joined the inventory.
+    uint64 internal _admittedBefore;
     Pull[] public pulls;
     /// @notice The next pull to reveal. Pulls are revealed in order.
     uint256 public nextReveal;
@@ -184,7 +186,9 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
         bytes32 leaf = keccak256(
             bytes.concat(
                 keccak256(
-                    abi.encode(seat, stats.accepted, stats.rateBps, stats.turns, stats.hoursTenths, stats.outdated)
+                    abi.encode(
+                        seat, stats.accepted, stats.rateBps, stats.turns, stats.hoursTenths, stats.outdated
+                    )
                 )
             )
         );
@@ -229,7 +233,9 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
         if (!released) revert NotReleased();
         if (count == 0) revert ZeroPulls();
         // Every queued pull must have a portrait to land on, so no INK waits on a pull that can't be filled.
-        if (pulls.length - nextReveal + count > available() + _incoming.length - _incomingHead) revert NoneAvailable();
+        if (pulls.length - nextReveal + count > available() + _incoming.length - _incomingHead) {
+            revert NoneAvailable();
+        }
         ink.safeTransferFrom(msg.sender, address(this), count * PORTRAIT);
         firstPullId = pulls.length;
         for (uint256 i; i < count; i++) {
@@ -273,10 +279,12 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
         if (block.number <= uint256(p.blockNumber) + 1) return Step.TooEarly;
 
         bytes32 entropy = blockhash(uint256(p.blockNumber) + 1);
-        // Portraits handed in before this pull's block join the draw; later ones wait for later pulls.
+        // Portraits handed in before this pull's block join the draw; later ones wait for later pulls. A renewed
+        // pull ahead of this one may already have admitted portraits handed in after this pull's block, maybe
+        // by someone who knew its block hash, so this pull is renewed to draw from a block after all of them.
         _admit(p.blockNumber);
         uint256 avail = available();
-        if (entropy == bytes32(0) || avail == 0) {
+        if (entropy == bytes32(0) || avail == 0 || p.blockNumber < _admittedBefore) {
             p.blockNumber = uint64(block.number);
             emit PullRenewed(pullId, p.blockNumber);
             return Step.Renewed;
@@ -301,6 +309,8 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     }
 
     function _admit(uint64 beforeBlock) internal {
+        if (beforeBlock <= _admittedBefore) return;
+        _admittedBefore = beforeBlock;
         uint256 head = _incomingHead;
         uint256 end = _incoming.length;
         while (head < end && _incoming[head].blockNumber < beforeBlock) {
@@ -318,7 +328,11 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     ///   goes to the liquidity contract.
     /// - An agent portrait returns exactly 400,000 INK.
     /// @param minOut Reverts if the INK paid out would be less (fees can change between signing and mining).
-    function deposit(uint256[] calldata tokenIds, uint256 minOut) external nonReentrant returns (uint256 inkOut) {
+    function deposit(uint256[] calldata tokenIds, uint256 minOut)
+        external
+        nonReentrant
+        returns (uint256 inkOut)
+    {
         // Read before the transfers: handing in your only agent portrait still counts for the discount.
         bool agentHolder = portraits.isAgentHolder(msg.sender);
         uint256 fees;

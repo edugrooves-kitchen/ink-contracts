@@ -11,12 +11,12 @@
   },
   "InkVault": {
     "bytecode": {
-      "sha256": "84cc4423772a557665e4bd5758823bd69db74334c07c404105898e56c5f48615",
-      "bytes": 10854
+      "sha256": "e366e1bca94e5fc1f349498093052103308747cc1f31e740b59aae0d40d12853",
+      "bytes": 10942
     },
     "deployedBytecode": {
-      "sha256": "3b9e7abdb17c42decfbc9ba4e9f9017f0207cd400bc0255ec1e4b0677cc064ee",
-      "bytes": 10380
+      "sha256": "2c1d7cf17715fa157b275868a6aeb1a8e8e295c5269f08210ec43dd3b7e5a8d7",
+      "bytes": 10468
     }
   },
   "InkLiquidity": {
