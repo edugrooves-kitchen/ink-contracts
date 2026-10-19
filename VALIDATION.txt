@@ -9,7 +9,7 @@ This is not a security audit, real-router proof or mainnet readiness certificati
 === Clean isolated run 1 ===
 $ forge build
 Compiling 177 files with Solc 0.8.26
-Solc 0.8.26 finished in 17.42s
+Solc 0.8.26 finished in 18.92s
 Compiler run successful with warnings:
 Warning (2519): This declaration shadows an existing declaration.
   --> script/LocalStack.s.sol:95:26:
@@ -65,6 +65,10 @@ Warning (3149): The result type of the shift operation is equal to the type of t
 $ forge test -vv
 No files changed, compilation skipped
 
+Ran 1 test for test/LaunchFeeHandoff.t.sol:LaunchFeeHandoffTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 503.73µs (0.00ns CPU time)
+
 Ran 9 tests for test/SnapshotAllSeats.t.sol:SnapshotAllSeatsTest
 [SKIP] test_claims_0000() (gas: 0)
 [SKIP] test_claims_0250() (gas: 0)
@@ -75,11 +79,7 @@ Ran 9 tests for test/SnapshotAllSeats.t.sol:SnapshotAllSeatsTest
 [SKIP] test_claims_1500() (gas: 0)
 [SKIP] test_claims_1750() (gas: 0)
 [SKIP] test_treeHasEverySeatOnce() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 9 skipped; finished in 1.46ms (919.50µs CPU time)
-
-Ran 1 test for test/LaunchFeeHandoff.t.sol:LaunchFeeHandoffTest
-[SKIP: skipped] setUp() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 3.70ms (0.00ns CPU time)
+Suite result: ok. 0 passed; 0 failed; 9 skipped; finished in 1.30ms (789.67µs CPU time)
 
 Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs0Test
 [SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
@@ -89,7 +89,12 @@ Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs0Test
 [SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
 [SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
 [SKIP] test_fork_sybilFirstHour() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 2.36ms (166.87µs CPU time)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 1.30ms (83.55µs CPU time)
+
+Ran 2 tests for test/SnapshotProofs.t.sol:SnapshotProofsTest
+[PASS] test_realSnapshotProofsClaim() (gas: 3207004)
+[PASS] test_tamperedStatsAreRejected() (gas: 605207)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 9.81ms (6.98ms CPU time)
 
 Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs1Test
 [SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
@@ -99,24 +104,23 @@ Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs1Test
 [SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
 [SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
 [SKIP] test_fork_sybilFirstHour() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 1.43ms (69.86µs CPU time)
-
-Ran 1 test for test/SybilOptions.t.sol:SybilPremium2xTest
-[SKIP] test_fork_sybilScenario() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.26ms (16.43µs CPU time)
-
-Ran 2 tests for test/SnapshotProofs.t.sol:SnapshotProofsTest
-[PASS] test_realSnapshotProofsClaim() (gas: 3207004)
-[PASS] test_tamperedStatsAreRejected() (gas: 605207)
-Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 8.48ms (6.09ms CPU time)
-
-Ran 1 test for test/SybilOptions.t.sol:SybilPremium5xTest
-[SKIP] test_fork_sybilScenario() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 825.90µs (12.54µs CPU time)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 10.11ms (130.14µs CPU time)
 
 Ran 1 test for test/SybilOptions.t.sol:SybilPremium1xTest
 [SKIP] test_fork_sybilScenario() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 968.16µs (16.30µs CPU time)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.48ms (16.92µs CPU time)
+
+Ran 1 test for test/LaunchDay.t.sol:LaunchDayTest
+[SKIP] test_fork_launchDay() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.64ms (16.66µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium2xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.21ms (15.40µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium5xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.25ms (16.48µs CPU time)
 
 Ran 1 test for test/TokenURIPreview.t.sol:TokenURIPreviewTest
 [PASS] test_writeTokenURIs() (gas: 25208079)
@@ -124,11 +128,16 @@ Logs:
   read-only profile: not written out-preview/agent-280.txt (use FOUNDRY_PROFILE=preview)
   read-only profile: not written out-preview/pool.txt (use FOUNDRY_PROFILE=preview)
 
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 51.58ms (51.41ms CPU time)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 54.75ms (54.53ms CPU time)
 
-Ran 1 test for test/LaunchDay.t.sol:LaunchDayTest
-[SKIP] test_fork_launchDay() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.10ms (16.53µs CPU time)
+Ran 6 tests for test/InkRenderer.t.sol:InkRendererTest
+[PASS] test_agentTraitsMatchTheScript() (gas: 61673138)
+[PASS] test_noClaimsAfterTheFirstSwarmPortrait() (gas: 398856)
+[PASS] test_poolTraitsMatchTheScript() (gas: 60502738)
+[PASS] test_scriptStoredInChunksAndLocked() (gas: 12171238)
+[PASS] test_swarmNumbersFillUnclaimedSeats() (gas: 154922619)
+[PASS] test_tokenURIForAnAgentPortrait() (gas: 3486930)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 429.46ms (621.61ms CPU time)
 
 Ran 45 tests for test/InkSystem.t.sol:InkSystemTest
 [PASS] test_agentClaimsOwnPortraitFree() (gas: 307376)
@@ -191,16 +200,7 @@ Logs:
 [PASS] test_traitRerollRepaintsSameToken() (gas: 2969717)
 [PASS] test_vaultStaysFullyBacked() (gas: 3805353)
 [PASS] test_zeroTradingFee() (gas: 29344)
-Suite result: ok. 45 passed; 0 failed; 0 skipped; finished in 120.11ms (113.68ms CPU time)
-
-Ran 6 tests for test/InkRenderer.t.sol:InkRendererTest
-[PASS] test_agentTraitsMatchTheScript() (gas: 61673138)
-[PASS] test_noClaimsAfterTheFirstSwarmPortrait() (gas: 398856)
-[PASS] test_poolTraitsMatchTheScript() (gas: 60502738)
-[PASS] test_scriptStoredInChunksAndLocked() (gas: 12171238)
-[PASS] test_swarmNumbersFillUnclaimedSeats() (gas: 154922619)
-[PASS] test_tokenURIForAnAgentPortrait() (gas: 3486930)
-Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 443.36ms (639.35ms CPU time)
+Suite result: ok. 45 passed; 0 failed; 0 skipped; finished in 421.50ms (134.86ms CPU time)
 
 Ran 1 test for test/VaultInvariants.t.sol:VaultInvariantsTest
 [PASS]
@@ -217,44 +217,44 @@ VaultInvariantsTest invariants:
 ╭--------------+------------------+-------+---------+----------╮
 | Contract     | Selector         | Calls | Reverts | Discards |
 +==============================================================+
-| VaultHandler | claim            | 559   | 0       | 0        |
+| VaultHandler | claim            | 558   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | deposit          | 528   | 0       | 0        |
+| VaultHandler | deposit          | 554   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | moveSeat         | 556   | 0       | 0        |
+| VaultHandler | moveSeat         | 543   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | pull             | 529   | 0       | 0        |
+| VaultHandler | pull             | 585   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | pullAll          | 535   | 0       | 0        |
+| VaultHandler | pullAll          | 571   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | pullTooMany      | 578   | 0       | 0        |
+| VaultHandler | pullTooMany      | 504   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | release          | 521   | 0       | 0        |
+| VaultHandler | release          | 490   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | rerollTraits     | 560   | 0       | 0        |
+| VaultHandler | rerollTraits     | 509   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | reveal           | 530   | 0       | 0        |
+| VaultHandler | reveal           | 597   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | revealNext       | 566   | 0       | 0        |
+| VaultHandler | revealNext       | 572   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | revealTraits     | 561   | 0       | 0        |
+| VaultHandler | revealTraits     | 539   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | roll             | 551   | 0       | 0        |
+| VaultHandler | roll             | 527   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | setFees          | 540   | 0       | 0        |
+| VaultHandler | setFees          | 582   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | transferPortrait | 566   | 0       | 0        |
+| VaultHandler | transferPortrait | 549   | 0       | 0        |
 ╰--------------+------------------+-------+---------+----------╯
 
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.90s (5.90s CPU time)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.62s (6.62s CPU time)
 
-Ran 13 test suites in 5.92s (6.54s CPU time): 55 tests passed, 0 failed, 28 skipped (83 total tests)
+Ran 13 test suites in 6.70s (7.56s CPU time): 55 tests passed, 0 failed, 28 skipped (83 total tests)
 
 
 === Clean isolated run 2 ===
 $ forge build
 Compiling 177 files with Solc 0.8.26
-Solc 0.8.26 finished in 16.73s
+Solc 0.8.26 finished in 18.44s
 Compiler run successful with warnings:
 Warning (2519): This declaration shadows an existing declaration.
   --> script/LocalStack.s.sol:95:26:
@@ -310,14 +310,6 @@ Warning (3149): The result type of the shift operation is equal to the type of t
 $ forge test -vv
 No files changed, compilation skipped
 
-Ran 1 test for test/SybilOptions.t.sol:SybilPremium2xTest
-[SKIP] test_fork_sybilScenario() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.44ms (85.09µs CPU time)
-
-Ran 1 test for test/SybilOptions.t.sol:SybilPremium5xTest
-[SKIP] test_fork_sybilScenario() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 918.09µs (13.55µs CPU time)
-
 Ran 9 tests for test/SnapshotAllSeats.t.sol:SnapshotAllSeatsTest
 [SKIP] test_claims_0000() (gas: 0)
 [SKIP] test_claims_0250() (gas: 0)
@@ -328,15 +320,7 @@ Ran 9 tests for test/SnapshotAllSeats.t.sol:SnapshotAllSeatsTest
 [SKIP] test_claims_1500() (gas: 0)
 [SKIP] test_claims_1750() (gas: 0)
 [SKIP] test_treeHasEverySeatOnce() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 9 skipped; finished in 5.47ms (505.67µs CPU time)
-
-Ran 1 test for test/SybilOptions.t.sol:SybilPremium1xTest
-[SKIP] test_fork_sybilScenario() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.06ms (16.88µs CPU time)
-
-Ran 1 test for test/LaunchFeeHandoff.t.sol:LaunchFeeHandoffTest
-[SKIP: skipped] setUp() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 332.06µs (0.00ns CPU time)
+Suite result: ok. 0 passed; 0 failed; 9 skipped; finished in 1.40ms (991.38µs CPU time)
 
 Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs0Test
 [SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
@@ -346,12 +330,11 @@ Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs0Test
 [SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
 [SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
 [SKIP] test_fork_sybilFirstHour() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 1.38ms (77.98µs CPU time)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 2.29ms (147.56µs CPU time)
 
-Ran 2 tests for test/SnapshotProofs.t.sol:SnapshotProofsTest
-[PASS] test_realSnapshotProofsClaim() (gas: 3207004)
-[PASS] test_tamperedStatsAreRejected() (gas: 605207)
-Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 5.66ms (4.17ms CPU time)
+Ran 1 test for test/LaunchFeeHandoff.t.sol:LaunchFeeHandoffTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 2.51ms (0.00ns CPU time)
 
 Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs1Test
 [SKIP] test_fork_agentHolderPaysNoHookFee() (gas: 0)
@@ -361,7 +344,24 @@ Ran 7 tests for test/MainnetFork.t.sol:MainnetForkInkIs1Test
 [SKIP] test_fork_lockedUntilReleaseHoweverLong() (gas: 0)
 [SKIP] test_fork_sellsPayFeesBothWays() (gas: 0)
 [SKIP] test_fork_sybilFirstHour() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 1.09ms (67.15µs CPU time)
+Suite result: ok. 0 passed; 0 failed; 7 skipped; finished in 1.04ms (62.11µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium2xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.38ms (28.32µs CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium5xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 3.76ms (71.60µs CPU time)
+
+Ran 2 tests for test/SnapshotProofs.t.sol:SnapshotProofsTest
+[PASS] test_realSnapshotProofsClaim() (gas: 3207004)
+[PASS] test_tamperedStatsAreRejected() (gas: 605207)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 8.72ms (6.19ms CPU time)
+
+Ran 1 test for test/SybilOptions.t.sol:SybilPremium1xTest
+[SKIP] test_fork_sybilScenario() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 2.39ms (63.27µs CPU time)
 
 Ran 1 test for test/TokenURIPreview.t.sol:TokenURIPreviewTest
 [PASS] test_writeTokenURIs() (gas: 25208079)
@@ -369,20 +369,7 @@ Logs:
   read-only profile: not written out-preview/agent-280.txt (use FOUNDRY_PROFILE=preview)
   read-only profile: not written out-preview/pool.txt (use FOUNDRY_PROFILE=preview)
 
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 45.79ms (45.62ms CPU time)
-
-Ran 1 test for test/LaunchDay.t.sol:LaunchDayTest
-[SKIP] test_fork_launchDay() (gas: 0)
-Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.71ms (18.18µs CPU time)
-
-Ran 6 tests for test/InkRenderer.t.sol:InkRendererTest
-[PASS] test_agentTraitsMatchTheScript() (gas: 61673138)
-[PASS] test_noClaimsAfterTheFirstSwarmPortrait() (gas: 398856)
-[PASS] test_poolTraitsMatchTheScript() (gas: 60502738)
-[PASS] test_scriptStoredInChunksAndLocked() (gas: 12171238)
-[PASS] test_swarmNumbersFillUnclaimedSeats() (gas: 154922619)
-[PASS] test_tokenURIForAnAgentPortrait() (gas: 3486930)
-Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 457.26ms (631.90ms CPU time)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 58.37ms (58.02ms CPU time)
 
 Ran 45 tests for test/InkSystem.t.sol:InkSystemTest
 [PASS] test_agentClaimsOwnPortraitFree() (gas: 307376)
@@ -445,7 +432,20 @@ Logs:
 [PASS] test_traitRerollRepaintsSameToken() (gas: 2969717)
 [PASS] test_vaultStaysFullyBacked() (gas: 3805353)
 [PASS] test_zeroTradingFee() (gas: 29344)
-Suite result: ok. 45 passed; 0 failed; 0 skipped; finished in 447.63ms (129.06ms CPU time)
+Suite result: ok. 45 passed; 0 failed; 0 skipped; finished in 136.64ms (129.00ms CPU time)
+
+Ran 1 test for test/LaunchDay.t.sol:LaunchDayTest
+[SKIP] test_fork_launchDay() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.59ms (18.92µs CPU time)
+
+Ran 6 tests for test/InkRenderer.t.sol:InkRendererTest
+[PASS] test_agentTraitsMatchTheScript() (gas: 61673138)
+[PASS] test_noClaimsAfterTheFirstSwarmPortrait() (gas: 398856)
+[PASS] test_poolTraitsMatchTheScript() (gas: 60502738)
+[PASS] test_scriptStoredInChunksAndLocked() (gas: 12171238)
+[PASS] test_swarmNumbersFillUnclaimedSeats() (gas: 154922619)
+[PASS] test_tokenURIForAnAgentPortrait() (gas: 3486930)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 402.55ms (590.69ms CPU time)
 
 Ran 1 test for test/VaultInvariants.t.sol:VaultInvariantsTest
 [PASS]
@@ -462,35 +462,35 @@ VaultInvariantsTest invariants:
 ╭--------------+------------------+-------+---------+----------╮
 | Contract     | Selector         | Calls | Reverts | Discards |
 +==============================================================+
-| VaultHandler | claim            | 550   | 0       | 0        |
+| VaultHandler | claim            | 532   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | deposit          | 553   | 0       | 0        |
+| VaultHandler | deposit          | 548   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | moveSeat         | 563   | 0       | 0        |
+| VaultHandler | moveSeat         | 548   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | pull             | 568   | 0       | 0        |
+| VaultHandler | pull             | 574   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | pullAll          | 584   | 0       | 0        |
+| VaultHandler | pullAll          | 550   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | pullTooMany      | 537   | 0       | 0        |
+| VaultHandler | pullTooMany      | 513   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | release          | 551   | 0       | 0        |
+| VaultHandler | release          | 536   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | rerollTraits     | 560   | 0       | 0        |
+| VaultHandler | rerollTraits     | 554   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | reveal           | 547   | 0       | 0        |
+| VaultHandler | reveal           | 578   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | revealNext       | 568   | 0       | 0        |
+| VaultHandler | revealNext       | 552   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | revealTraits     | 537   | 0       | 0        |
+| VaultHandler | revealTraits     | 532   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | roll             | 531   | 0       | 0        |
+| VaultHandler | roll             | 576   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | setFees          | 481   | 0       | 0        |
+| VaultHandler | setFees          | 524   | 0       | 0        |
 |--------------+------------------+-------+---------+----------|
-| VaultHandler | transferPortrait | 550   | 0       | 0        |
+| VaultHandler | transferPortrait | 563   | 0       | 0        |
 ╰--------------+------------------+-------+---------+----------╯
 
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.33s (7.32s CPU time)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.35s (6.34s CPU time)
 
-Ran 13 test suites in 7.35s (8.30s CPU time): 55 tests passed, 0 failed, 28 skipped (83 total tests)
+Ran 13 test suites in 6.37s (6.97s CPU time): 55 tests passed, 0 failed, 28 skipped (83 total tests)
