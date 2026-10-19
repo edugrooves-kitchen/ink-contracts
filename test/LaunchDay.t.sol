@@ -24,7 +24,8 @@ contract LaunchDayTest is MainnetForkSetup {
     uint256 imdSpent;
     uint256 imdReceived;
     uint256 treasuryImd;
-    uint256 inkBurned;
+    uint256 inkToLiquidity;
+    uint256 inkReAdded;
 
     function _inkAddress() internal pure override returns (address) {
         return address(0x00000000000000000000000000000000000111Aa);
@@ -78,9 +79,11 @@ contract LaunchDayTest is MainnetForkSetup {
         _assertFansHoldOne();
         _report("40 pulls revealed");
 
-        // ---- Rerolls: ten fans hand theirs back (1% fee to the bonus pot) and pull again.
+        // ---- Rerolls: ten fans hand theirs back (1% fee, to the liquidity contract) and pull again.
+        uint256 liqBefore = ink.balanceOf(address(liq));
         for (uint256 i; i < REROLLS; i++) _deposit(fans[i], _tokenOf(fans[i]), PORTRAIT * 99 / 100);
-        assertEq(vault.bonusPot(), REROLLS * PORTRAIT / 100, "reroll fees fill the pot");
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, REROLLS * PORTRAIT / 100, "reroll fees go to liquidity");
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
         address[] memory again = new address[](REROLLS);
         for (uint256 i; i < REROLLS; i++) {
             again[i] = fans[i];
@@ -107,12 +110,10 @@ contract LaunchDayTest is MainnetForkSetup {
         }
         _report("5 trait rerolls");
 
-        // ---- An agent holder hands in their portrait for 400k + bonus (5%, capped by the pot).
-        uint256 pot = vault.bonusPot();
-        uint256 bonus = pot < PORTRAIT * 5 / 100 ? pot : PORTRAIT * 5 / 100;
-        uint256 got = _deposit(holders[1], _seatOf(1), PORTRAIT + bonus);
-        assertEq(got, PORTRAIT + bonus, "agent bonus paid");
-        _report("agent deposit with bonus");
+        // ---- An agent holder hands in their portrait for exactly 400k.
+        uint256 got = _deposit(holders[1], _seatOf(1), PORTRAIT);
+        assertEq(got, PORTRAIT, "an agent hand-in returns its backing");
+        _report("agent deposit");
 
         // ---- An hour in: a whale buys, some fans sell their INK.
         vm.warp(block.timestamp + 1 hours);
@@ -144,7 +145,8 @@ contract LaunchDayTest is MainnetForkSetup {
         console2.log("Opening price, IMD per portrait (x1000):", openPrice);
         console2.log("Final price,   IMD per portrait (x1000):", _imdPerPortrait());
         console2.log("IMD paid in by buyers / out to sellers:", imdSpent / 1e18, imdReceived / 1e18);
-        console2.log("Hook fees: IMD to treasury / INK burned:", treasuryImd / 1e15, inkBurned / 1e18);
+        console2.log("Hook fees: IMD to treasury / INK to liquidity:", treasuryImd / 1e15, inkToLiquidity / 1e18);
+        console2.log("INK fees added back to the pool / positions:", inkReAdded / 1e18, liq.positionCount());
         console2.log("  (IMD in thousandths)");
         console2.log("Portraits out / swarm minted / in vault:", portraits.totalSupply() - vault.heldCount(), portraits.swarmMinted(), vault.heldCount());
         assertGt(treasuryImd, 0);
@@ -197,12 +199,21 @@ contract LaunchDayTest is MainnetForkSetup {
         vm.roll(block.number + 1);
     }
 
+    /// What the keeper does: collect hook and LP fees, then add the INK back once there's a portrait's worth.
     function _collect() internal {
-        uint256 dead = ink.balanceOf(DEAD);
-        (uint256 imdPaid, uint256 burned) = hook.collectFees();
+        uint256 before = ink.balanceOf(address(liq));
+        (uint256 imdPaid, uint256 toLiq) = hook.collectFees();
+        (, uint256 lpInk) = liq.collectFees(0, type(uint256).max);
         treasuryImd += imdPaid;
-        inkBurned += burned;
-        assertEq(ink.balanceOf(DEAD) - dead, burned, "INK fees burned");
+        inkToLiquidity += toLiq;
+        assertEq(ink.balanceOf(address(liq)) - before, toLiq + lpInk, "INK fees reach the liquidity contract");
+        uint256 pending = ink.balanceOf(address(liq));
+        if (pending >= liq.MIN_ADD()) {
+            vm.prank(keeper);
+            liq.addLiquidity();
+            inkReAdded += pending;
+        }
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
     }
 
     // ---------------------------------------------------------------- reads
@@ -234,7 +245,7 @@ contract LaunchDayTest is MainnetForkSetup {
         if (vault.released()) {
             uint256 outside = portraits.totalSupply() - vault.heldCount();
             uint256 queued = vault.pullCount() - vault.nextReveal();
-            assertEq(bal, (outside + queued) * PORTRAIT + vault.bonusPot(), "vault fully backed");
+            assertEq(bal, (outside + queued) * PORTRAIT, "vault fully backed");
             assertEq(portraits.agentMinted() + vault.swarmSlots(), 2000, "2,000 portraits");
         } else {
             assertEq(bal, 2000 * PORTRAIT, "vault holds every seat's INK");
@@ -249,8 +260,8 @@ contract LaunchDayTest is MainnetForkSetup {
                 vm.toString(_imdPerPortrait()),
                 " | portraits out ",
                 vm.toString(portraits.totalSupply() - vault.heldCount()),
-                " | pot INK ",
-                vm.toString(vault.bonusPot() / 1e18),
+                " | INK waiting to re-add ",
+                vm.toString(ink.balanceOf(address(liq)) / 1e18),
                 " | IMD in ",
                 vm.toString(imdSpent / 1e18)
             )

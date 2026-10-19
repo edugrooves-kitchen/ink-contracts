@@ -150,7 +150,7 @@ abstract contract MainnetForkSetup is Test {
         // Contracts launch.
         portraits = new InkPortraits(owner);
         vault = new InkVault(portraits, SEATS, owner);
-        liq = new InkLiquidity(MANAGER, POSM, owner);
+        liq = new InkLiquidity(MANAGER, POSM, owner, treasury);
         vm.prank(owner);
         portraits.setVault(address(vault));
 
@@ -357,7 +357,7 @@ abstract contract MainnetForkBase is MainnetForkSetup {
         // Release mints a real, permanent single-sided position on the mainnet PositionManager.
         int24 tickBefore = _tick();
         _release();
-        assertEq(liq.positionCount(), 1);
+        assertEq(liq.positionCount(), liq.LADDER_BANDS());
         assertEq(IERC721(address(POSM)).ownerOf(liq.positions(0)), address(liq));
         assertEq(ink.balanceOf(address(vault)), 2 * PORTRAIT);
         assertEq(_tick(), tickBefore, "adding single-sided liquidity doesn't move the price");
@@ -370,12 +370,14 @@ abstract contract MainnetForkBase is MainnetForkSetup {
         assertEq(portraits.ownerOf(t), buyer);
         uint256[] memory ids = new uint256[](1);
         ids[0] = t;
+        uint256 liqBefore = ink.balanceOf(address(liq));
         vm.startPrank(buyer);
         portraits.approve(address(vault), t);
         vault.deposit(ids, PORTRAIT * 99 / 100);
         vm.stopPrank();
         assertEq(ink.balanceOf(buyer), PORTRAIT * 99 / 100);
-        assertEq(vault.bonusPot(), PORTRAIT / 100);
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, PORTRAIT / 100, "the 1% hand-back fee goes to liquidity");
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
 
         // Hook fees pay out: IMD to the treasury (exact-output buy pays the fee in IMD).
         (uint256 imdPaid,) = hook.collectFees();
@@ -384,7 +386,7 @@ abstract contract MainnetForkBase is MainnetForkSetup {
         s1;
     }
 
-    function test_fork_hookFeeExactInBuyIsInkAndBurned() public onlyFork {
+    function test_fork_hookFeeExactInBuyIsInkToLiquidity() public onlyFork {
         _release();
         uint128 amountIn = 1e18; // ≈ 400,000 INK at the opening price, inside the first-hour cap
         _swapExactIn(buyer, true, amountIn);
@@ -392,21 +394,23 @@ abstract contract MainnetForkBase is MainnetForkSetup {
         uint256 fee = MANAGER.balanceOf(address(hook), uint256(uint160(address(ink))));
         assertGt(fee, 0);
         assertEq(fee, (received + fee) * 25 / 10_000, "0.25% of the pool's output");
-        (uint256 imdPaid, uint256 burned) = hook.collectFees();
+        uint256 liqBefore = ink.balanceOf(address(liq));
+        (uint256 imdPaid, uint256 toLiq) = hook.collectFees();
         assertEq(imdPaid, 0);
-        assertEq(burned, fee);
-        assertEq(ink.balanceOf(DEAD), fee);
+        assertEq(toLiq, fee);
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, fee, "INK fee goes to the liquidity contract");
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
     }
 
     function test_fork_sellsPayFeesBothWays() public onlyFork {
         _releaseAndTrade();
         _swapExactIn(buyer, true, 1_000e18); // buyers first, so there's IMD in the pool to sell into
-        // Swarm members sell INK: exact-in (fee in IMD, to treasury) and exact-out (fee in INK, burned).
+        // Swarm members sell INK: exact-in (fee in IMD, to treasury) and exact-out (fee in INK, to liquidity).
         _swapExactIn(swarm, false, uint128(PORTRAIT));
         _swapExactOut(swarm, false, 10e18);
-        (uint256 imdPaid, uint256 burned) = hook.collectFees();
+        (uint256 imdPaid, uint256 toLiq) = hook.collectFees();
         assertGt(imdPaid, 0);
-        assertGt(burned, 0);
+        assertGt(toLiq, 0);
     }
 
     function test_fork_agentHolderPaysNoHookFee() public onlyFork {
@@ -491,6 +495,14 @@ abstract contract MainnetForkBase is MainnetForkSetup {
         _swapExactIn(buyer, true, 5_000_000e18);
         console2.log("INK bought with 5M IMD:", ink.balanceOf(buyer) / 1e18);
         assertGt(ink.balanceOf(buyer), 100_000_000e18, "deep enough to cross into the released liquidity");
+
+        // The released position earned its share of the pool's 1.25%; the real PositionManager pays it out.
+        uint256 before = IMD.balanceOf(treasury);
+        (uint256 imdOut,) = liq.collectFees(0, type(uint256).max);
+        console2.log("IMD fees collected from the released position:", imdOut / 1e18);
+        assertGt(imdOut, 0, "released position earned IMD fees");
+        assertEq(IMD.balanceOf(treasury) - before, imdOut, "to the treasury");
+        assertEq(IMD.balanceOf(address(liq)), 0, "nothing stranded");
     }
 }
 

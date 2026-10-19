@@ -22,8 +22,10 @@ Review at least:
 
 1. NFT cap and inventory accounting across claims, release, pending pulls, renewals,
    reveals, repeated deposits, and recycling of agent and swarm portraits.
-2. Vault solvency: 400,000 INK backing, outstanding reservations, bonus-pot accounting,
+2. Vault solvency: 400,000 INK backing, outstanding reservations, reroll fees sent to InkLiquidity,
    rounding, fee changes, direct token transfers, and adversarial operation ordering.
+   Trait rerolls (rerollTraits/revealTraits): next-block-hash seed, renewal after 256
+   blocks, pending rerolls blocking deposits, and EIP-4906 metadata updates.
 3. Current seat ownership, one claim per seat, invalid/duplicate Merkle proofs,
    untrusted statistics and units, ownership transfers, and exact window boundaries.
 4. Randomness and liveness: blockhash expiry, renewals, reveal selection, selective

@@ -12,7 +12,8 @@ interface IInkRenderer {
 /// @title Ink & Inference portraits
 /// @notice A static, one-time drop of at most 2,000 portraits. Only the vault mints.
 /// - Agent portraits: token id = seat number (0–1999), painted from that agent's work record.
-/// - Swarm portraits: token ids from 10,000, painted from a random seed.
+/// - Swarm portraits: token ids from 10,000, painted from a random seed. Each one fills an unclaimed seat's
+///   number: the k-th swarm portrait is numbered after the k-th unclaimed seat (see swarmNumber).
 /// - 0% trading fee: ERC-2981 reports a zero royalty, so marketplaces show no creator fee on resales.
 contract InkPortraits is ERC721, ERC2981, Ownable {
     uint256 public constant MAX_SUPPLY = 2000;
@@ -31,11 +32,16 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     address public vault;
     address public renderer;
     bool public rendererLocked;
+    /// @notice Collection-level metadata (ERC-7572): name, description, image, banner_image, external_link.
+    /// Marketplaces read it for the collection page. Only presentation; the owner can update it any time.
+    string public contractURI;
 
     uint256 public agentMinted;
     uint256 public swarmMinted;
 
     mapping(uint256 seat => AgentStats) internal _stats;
+    /// @dev One bit per seat (8 × 256 ≥ 2,000), set when the seat's agent portrait is claimed.
+    uint256[8] internal _claimedSeats;
     mapping(uint256 tokenId => bytes32) public swarmSeed;
     /// @notice How many agent portraits an address holds.
     mapping(address => uint256) public agentBalanceOf;
@@ -45,6 +51,7 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     event VaultSet(address vault);
     event RendererSet(address renderer);
     event RendererLocked();
+    event ContractURIUpdated();
     event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
     event MetadataUpdate(uint256 _tokenId);
 
@@ -55,6 +62,7 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     error NotASeat();
     error Locked();
     error NoRenderer();
+    error SwarmStarted();
 
     constructor(address owner_) ERC721("Ink & Inference", "INKINF") Ownable(owner_) {
         _setDefaultRoyalty(owner_, ROYALTY_BPS);
@@ -87,11 +95,22 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
         emit RendererLocked();
     }
 
+    /// @notice Sets the collection-level metadata (ERC-7572), e.g. an ipfs:// JSON with the banner image.
+    /// Marketplaces such as OpenSea also let whoever owner() returns edit the collection page directly.
+    function setContractURI(string calldata uri) external onlyOwner {
+        contractURI = uri;
+        emit ContractURIUpdated();
+    }
+
     // ---------------------------------------------------------------- minting (vault only)
 
     function mintAgent(uint256 seat, address to, AgentStats calldata stats) external onlyVault {
         if (seat >= SEAT_COUNT) revert NotASeat();
         if (agentMinted + swarmMinted >= MAX_SUPPLY) revert SoldOut();
+        // Swarm numbers fill the unclaimed seats, so they'd shift if a seat were claimed after the first
+        // swarm portrait. The vault never does that (pulls start after the claim window), and this makes sure.
+        if (swarmMinted != 0) revert SwarmStarted();
+        _claimedSeats[seat >> 8] |= 1 << (seat & 255);
         _stats[seat] = stats;
         agentMinted++;
         // No receiver check, so a seat held by a contract wallet can still claim. Reverts if this seat's
@@ -125,6 +144,39 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     /// portrait and has since an earlier block, so a portrait lent for one transaction doesn't count.
     function isAgentHolder(address holder) external view returns (bool) {
         return agentBalanceOf[holder] > 0 && agentHolderSince[holder] < block.number;
+    }
+
+    /// @notice The number a swarm portrait goes by: the seat number it fills. Swarm portrait k (token id
+    /// 10,000 + k) takes the k-th unclaimed seat in ascending order, so the collection's numbers run
+    /// 0000–1999 once, agent and swarm together.
+    function swarmNumber(uint256 tokenId) external view returns (uint256) {
+        if (isAgentPortrait(tokenId)) revert NotASwarmPortrait();
+        _requireOwned(tokenId);
+        uint256 k = tokenId - SWARM_ID_OFFSET;
+        for (uint256 w; w < 8; w++) {
+            uint256 bits = w == 7 ? SEAT_COUNT - 7 * 256 : 256;
+            uint256 open = ~_claimedSeats[w];
+            if (bits < 256) open &= (1 << bits) - 1;
+            uint256 free = _popcount(open);
+            if (k >= free) {
+                k -= free;
+                continue;
+            }
+            for (uint256 b; ; b++) {
+                if (open & (1 << b) != 0) {
+                    if (k == 0) return w * 256 + b;
+                    k--;
+                }
+            }
+        }
+        revert SoldOut(); // unreachable: MAX_SUPPLY keeps swarm portraits ≤ unclaimed seats
+    }
+
+    function _popcount(uint256 x) internal pure returns (uint256 n) {
+        while (x != 0) {
+            x &= x - 1;
+            n++;
+        }
     }
 
     function agentStats(uint256 seat) external view returns (AgentStats memory) {

@@ -119,5 +119,62 @@ contract InkRendererTest is Test {
         _eq(l.glitch, "Clean", "98.59% is clean");
         _eq(l.density, "Teeming", "10,634 turns");
         _eq(l.depth, "Abyssal", "46.7 hours");
+
+        string memory meta = renderer.tokenJSON(280);
+        _eq(vm.parseJsonString(meta, ".name"), "Agent Portrait #0280", "agent name");
+        _eq(vm.parseJsonString(meta, ".portrait_type"), "agent", "agent type");
+        _eq(vm.parseJsonString(meta, ".attributes[0].value"), "Agent Portrait", "agent Type trait");
+        assertTrue(vm.contains(vm.parseJsonString(meta, ".description"), "seat #280"), "description names the seat");
+        assertEq(uri, string.concat("data:application/json;base64,", vm.toBase64(meta)), "tokenURI wraps tokenJSON");
+
+        vm.prank(address(vault));
+        uint256 first = portraits.mintSwarm(holder, keccak256("first"));
+        vm.prank(address(vault));
+        uint256 second = portraits.mintSwarm(holder, keccak256("second"));
+        meta = renderer.tokenJSON(second);
+        assertEq(first, portraits.SWARM_ID_OFFSET());
+        // Only seat 280 was claimed, so the swarm fills seats 0 and 1 first.
+        _eq(vm.parseJsonString(renderer.tokenJSON(first), ".name"), "Swarm Portrait #0000", "first swarm name");
+        _eq(vm.parseJsonString(meta, ".name"), "Swarm Portrait #0001", "second swarm name");
+        assertTrue(vm.contains(vm.parseJsonString(meta, ".description"), "unclaimed seat #1,"), "description names the seat it fills");
+        _eq(vm.parseJsonString(meta, ".portrait_type"), "swarm", "swarm type");
+        _eq(vm.parseJsonString(meta, ".attributes[0].value"), "Swarm Portrait", "swarm Type trait");
+    }
+
+    /// Swarm portraits take the unclaimed seats' numbers, lowest first, across all eight bitmap words.
+    function test_swarmNumbersFillUnclaimedSeats() public {
+        vm.prank(owner);
+        portraits.setVault(address(this));
+        InkPortraits.AgentStats memory s;
+        // Claim every seat except 1, 3, 255, 256, 1791, 1792 and 1999.
+        for (uint256 seat; seat < 2000; seat++) {
+            if (seat == 1 || seat == 3 || seat == 255 || seat == 256 || seat == 1791 || seat == 1792 || seat == 1999) continue;
+            portraits.mintAgent(seat, address(this), s);
+        }
+        uint256[7] memory expected = [uint256(1), 3, 255, 256, 1791, 1792, 1999];
+        for (uint256 i; i < 7; i++) {
+            uint256 id = portraits.mintSwarm(address(this), bytes32(i));
+            assertEq(portraits.swarmNumber(id), expected[i], "fills the next unclaimed seat");
+        }
+        assertEq(portraits.totalSupply(), 2000, "every number used once");
+        vm.expectRevert(InkPortraits.SoldOut.selector);
+        portraits.mintSwarm(address(this), bytes32(0));
+        vm.expectRevert(InkPortraits.NotASwarmPortrait.selector);
+        portraits.swarmNumber(5);
+    }
+
+    function test_noClaimsAfterTheFirstSwarmPortrait() public {
+        vm.prank(owner);
+        portraits.setVault(address(this));
+        InkPortraits.AgentStats memory s;
+        portraits.mintAgent(0, address(this), s);
+        uint256 id = portraits.mintSwarm(address(this), bytes32(0));
+        assertEq(portraits.swarmNumber(id), 1);
+        vm.expectRevert(InkPortraits.SwarmStarted.selector);
+        portraits.mintAgent(1, address(this), s);
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 }

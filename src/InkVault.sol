@@ -27,12 +27,12 @@ interface IInkLiquidity {
 ///   block after the pull, so it can't be known (or retried) when the INK is spent. Anyone can reveal it.
 ///   Pulls are revealed strictly in order, and a portrait handed in only joins the draw for pulls made in
 ///   later blocks, so once a block hash is public nobody can change what it picks.
-/// - Reroll: hand a swarm portrait back for 400,000 INK minus a fee. The fee goes into the bonus pot.
-///   Holders of an agent portrait pay half.
-/// - Trait reroll: pay the same fee (into the same pot) to give a swarm portrait you hold a new random seed,
-///   drawn from the hash of the block after the request like a pull. Same token, new art and traits.
-/// - Agent deposit: hand an agent portrait in for 400,000 INK plus a bonus from the pot (up to 5%), paid
-///   once per agent portrait. It joins the pool, so any pull can land a one-of-a-kind agent portrait.
+/// - Reroll: hand a swarm portrait back for 400,000 INK minus a fee. Holders of an agent portrait pay half.
+/// - Trait reroll: pay the same fee to give a swarm portrait you hold a new random seed, drawn from the hash
+///   of the block after the request like a pull. Same token, new art and traits.
+/// - Agent deposit: hand an agent portrait in for exactly 400,000 INK. It joins the draw, so any pull can
+///   land a one-of-a-kind agent portrait.
+/// Every fee goes to the liquidity contract, which adds it back to the pool; nothing is burned.
 /// Every portrait outside the vault is backed by 400,000 INK inside it.
 contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     using SafeERC20 for IERC20;
@@ -67,7 +67,7 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
 
     /// @notice INK, set once after the swarm launch creates it.
     IERC20 public ink;
-    /// @notice Gets the unclaimed seats' INK after the window, to add to the pool.
+    /// @notice Gets the unclaimed seats' INK after the window, and every fee, to add to the pool.
     address public liquidity;
 
     // Set once by setup().
@@ -80,10 +80,6 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
 
     uint16 public rerollFeeBps = 100;
     uint16 public agentRerollFeeBps = 50;
-    /// @notice Bonus for depositing an agent portrait, paid from the bonus pot while it lasts.
-    uint16 public agentDepositBonusBps = 500;
-    /// @notice Reroll fees collected to pay agent-deposit bonuses.
-    uint256 public bonusPot;
 
     bool public released;
     /// @dev Portraits a pull can land on.
@@ -94,8 +90,6 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     Pull[] public pulls;
     /// @notice The next pull to reveal. Pulls are revealed in order.
     uint256 public nextReveal;
-    /// @notice Agent portraits that have already earned their deposit bonus.
-    mapping(uint256 tokenId => bool) public bonusPaid;
     /// @notice The block of a swarm portrait's pending trait reroll; 0 when none is pending.
     mapping(uint256 tokenId => uint64) public traitRerollBlock;
 
@@ -106,11 +100,11 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     event Pulled(uint256 indexed pullId, address indexed to, uint64 blockNumber);
     event PullRenewed(uint256 indexed pullId, uint64 blockNumber);
     event Revealed(uint256 indexed pullId, address indexed to, uint256 tokenId, bool newlyMinted);
-    event Deposited(address indexed from, uint256 indexed tokenId, uint256 inkOut, int256 feeOrBonus);
+    event Deposited(address indexed from, uint256 indexed tokenId, uint256 inkOut, uint256 fee);
     event TraitRerollRequested(uint256 indexed tokenId, address indexed by, uint256 fee, uint64 blockNumber);
     event TraitRerollRenewed(uint256 indexed tokenId, uint64 blockNumber);
     event TraitsRerolled(uint256 indexed tokenId, bytes32 seed);
-    event FeesSet(uint16 rerollFeeBps, uint16 agentRerollFeeBps, uint16 agentDepositBonusBps);
+    event FeesSet(uint16 rerollFeeBps, uint16 agentRerollFeeBps);
 
     error InkAlreadySet();
     error InkNotSet();
@@ -166,12 +160,11 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
         emit Setup(root, start, claimEnd, liquidity_);
     }
 
-    function setFees(uint16 baseBps, uint16 agentBps, uint16 bonusBps) external onlyOwner {
-        if (baseBps > MAX_FEE_BPS || agentBps > baseBps || bonusBps > MAX_FEE_BPS * 2) revert FeeTooHigh();
+    function setFees(uint16 baseBps, uint16 agentBps) external onlyOwner {
+        if (baseBps > MAX_FEE_BPS || agentBps > baseBps) revert FeeTooHigh();
         rerollFeeBps = baseBps;
         agentRerollFeeBps = agentBps;
-        agentDepositBonusBps = bonusBps;
-        emit FeesSet(baseBps, agentBps, bonusBps);
+        emit FeesSet(baseBps, agentBps);
     }
 
     // ---------------------------------------------------------------- agent portraits
@@ -321,46 +314,35 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
     // ---------------------------------------------------------------- deposits: rerolls and agent portraits
 
     /// @notice Hands portraits to the vault, where pulls made from the next block on can land them.
-    /// - A swarm portrait returns 400,000 INK minus the reroll fee (lower for agent-portrait holders); the fee
-    ///   goes into the bonus pot.
-    /// - An agent portrait returns 400,000 INK plus a bonus from the pot, while it lasts. Each agent portrait
-    ///   earns the bonus once; handing it in again (after someone pulls it) returns 400,000 INK.
+    /// - A swarm portrait returns 400,000 INK minus the reroll fee (lower for agent-portrait holders), which
+    ///   goes to the liquidity contract.
+    /// - An agent portrait returns exactly 400,000 INK.
     /// @param minOut Reverts if the INK paid out would be less (fees can change between signing and mining).
     function deposit(uint256[] calldata tokenIds, uint256 minOut) external nonReentrant returns (uint256 inkOut) {
         // Read before the transfers: handing in your only agent portrait still counts for the discount.
         bool agentHolder = portraits.isAgentHolder(msg.sender);
+        uint256 fees;
         for (uint256 i; i < tokenIds.length; i++) {
             uint256 tokenId = tokenIds[i];
             if (traitRerollBlock[tokenId] != 0) revert RerollPending();
             portraits.transferFrom(msg.sender, address(this), tokenId);
             _incoming.push(Incoming({tokenId: tokenId, blockNumber: uint64(block.number)}));
 
-            if (portraits.isAgentPortrait(tokenId)) {
-                uint256 bonus;
-                if (!bonusPaid[tokenId]) {
-                    bonus = (PORTRAIT * agentDepositBonusBps) / 10_000;
-                    if (bonus > bonusPot) bonus = bonusPot;
-                    if (bonus > 0) {
-                        bonusPaid[tokenId] = true;
-                        bonusPot -= bonus;
-                    }
-                }
-                inkOut += PORTRAIT + bonus;
-                emit Deposited(msg.sender, tokenId, PORTRAIT + bonus, int256(bonus));
-            } else {
-                uint256 fee = (PORTRAIT * (agentHolder ? agentRerollFeeBps : rerollFeeBps)) / 10_000;
-                bonusPot += fee;
-                inkOut += PORTRAIT - fee;
-                emit Deposited(msg.sender, tokenId, PORTRAIT - fee, -int256(fee));
-            }
+            uint256 fee = portraits.isAgentPortrait(tokenId)
+                ? 0
+                : (PORTRAIT * (agentHolder ? agentRerollFeeBps : rerollFeeBps)) / 10_000;
+            fees += fee;
+            inkOut += PORTRAIT - fee;
+            emit Deposited(msg.sender, tokenId, PORTRAIT - fee, fee);
         }
         if (inkOut < minOut) revert BelowMinOut();
         ink.safeTransfer(msg.sender, inkOut);
+        if (fees > 0) ink.safeTransfer(liquidity, fees);
     }
 
     // ---------------------------------------------------------------- trait rerolls
 
-    /// @notice Pays the reroll fee (lower for agent-portrait holders) to repaint a swarm portrait you hold
+    /// @notice Pays the reroll fee (lower for agent-portrait holders, sent to the liquidity contract) to repaint a swarm portrait you hold
     /// with a new random seed. The seed comes from the hash of the next block, so it can't be known when the
     /// fee is paid; anyone can reveal it with revealTraits(). The portrait can't be handed in meanwhile.
     /// @param maxFee Reverts if the fee would be more (fees can change between signing and mining).
@@ -372,8 +354,7 @@ contract InkVault is Ownable, ReentrancyGuard, IERC721Receiver {
         fee = (PORTRAIT * (portraits.isAgentHolder(msg.sender) ? agentRerollFeeBps : rerollFeeBps)) / 10_000;
         if (fee > maxFee) revert FeeTooHigh();
         traitRerollBlock[tokenId] = uint64(block.number);
-        bonusPot += fee;
-        ink.safeTransferFrom(msg.sender, address(this), fee);
+        ink.safeTransferFrom(msg.sender, liquidity, fee);
         emit TraitRerollRequested(tokenId, msg.sender, fee, uint64(block.number));
     }
 

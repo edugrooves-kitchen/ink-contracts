@@ -9,6 +9,8 @@ import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {InkPortraits} from "../src/InkPortraits.sol";
 import {InkVault} from "../src/InkVault.sol";
 
+address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
 contract FuzzSeats is ERC721("identity.md", "IMD-ID") {
     function mint(address to, uint256 id) external {
         _mint(to, id);
@@ -37,8 +39,8 @@ contract VaultHandler is Test {
     InkPortraits.AgentStats[8] internal stats;
 
     // Ghosts
-    mapping(uint256 tokenId => uint256) public bonusesPaid;
-    uint256 public maxBonusesOnOneToken;
+    /// INK the vault has sent to the liquidity contract in fees, by the handler's own count.
+    uint256 public feesToLiquidity;
     uint256 public inkMinted;
     uint256 public calls;
     bool public soldOutReached;
@@ -222,21 +224,13 @@ contract VaultHandler is Test {
         uint256 id = _heldBy(who, pick);
         if (id == type(uint256).max || vault.traitRerollBlock(id) != 0) return;
         bool agentToken = id < 10_000;
-        bool firstBonus = agentToken && !vault.bonusPaid(id) && vault.bonusPot() > 0
-            && vault.agentDepositBonusBps() > 0;
-        uint256 potBefore = vault.bonusPot();
         uint256[] memory ids = new uint256[](1);
         ids[0] = id;
         vm.prank(who);
         uint256 out = vault.deposit(ids, 0);
+        feesToLiquidity += PORTRAIT - out;
         if (agentToken) {
-            assertGe(out, PORTRAIT, "an agent hand-in never pays less than its backing");
-            if (out > PORTRAIT) {
-                assertTrue(firstBonus, "bonus only on a first hand-in");
-                assertEq(potBefore - vault.bonusPot(), out - PORTRAIT);
-                bonusesPaid[id]++;
-                if (bonusesPaid[id] > maxBonusesOnOneToken) maxBonusesOnOneToken = bonusesPaid[id];
-            }
+            assertEq(out, PORTRAIT, "an agent hand-in pays exactly its backing");
         } else {
             assertLe(out, PORTRAIT, "a swarm hand-in never pays more than its backing");
             assertGe(out, PORTRAIT * 95 / 100, "fees are capped at 5%");
@@ -251,10 +245,11 @@ contract VaultHandler is Test {
         uint256 id = _heldBy(who, pick);
         if (id == type(uint256).max || id < 10_000 || vault.traitRerollBlock(id) != 0) return;
         _fund(who, PORTRAIT * 5 / 100);
-        uint256 potBefore = vault.bonusPot();
+        uint256 liqBefore = ink.balanceOf(vault.liquidity());
         vm.prank(who);
         uint256 fee = vault.rerollTraits(id, type(uint256).max);
-        assertEq(vault.bonusPot() - potBefore, fee, "trait reroll fee goes into the pot");
+        assertEq(ink.balanceOf(vault.liquidity()) - liqBefore, fee, "the trait reroll fee goes to liquidity");
+        feesToLiquidity += fee;
         assertLe(fee, PORTRAIT * 5 / 100, "fees are capped at 5%");
         _rerolled.push(id);
     }
@@ -278,12 +273,11 @@ contract VaultHandler is Test {
         portraits.transferFrom(from, _actor(toSeed), id);
     }
 
-    function setFees(uint16 base, uint16 agent, uint16 bonus) external counted("setFees") {
+    function setFees(uint16 base, uint16 agent) external counted("setFees") {
         base = uint16(bound(base, 0, 500));
         agent = uint16(bound(agent, 0, base));
-        bonus = uint16(bound(bonus, 0, 1000));
         vm.prank(owner);
-        vault.setFees(base, agent, bonus);
+        vault.setFees(base, agent);
     }
 
     function actorCount() external view returns (uint256) {
@@ -333,12 +327,12 @@ contract VaultInvariantsTest is Test {
         }
         uint256 outside = portraits.totalSupply() - vault.heldCount();
         uint256 queued = vault.pullCount() - vault.nextReveal();
-        assertEq(bal, (outside + queued) * PORTRAIT + vault.bonusPot(), "backing");
+        assertEq(bal, (outside + queued) * PORTRAIT, "backing");
     }
 
-    /// No INK appears or disappears: vault + liquidity + actors = what was minted.
+    /// No INK appears or disappears: vault + liquidity + actors + burned = what was minted.
     function invariant_inkConserved() public view {
-        uint256 sum = ink.balanceOf(address(vault)) + ink.balanceOf(address(sink));
+        uint256 sum = ink.balanceOf(address(vault)) + ink.balanceOf(address(sink)) + ink.balanceOf(DEAD);
         for (uint256 i; i < handler.actorCount(); i++) {
             sum += ink.balanceOf(handler.actors(i));
         }
@@ -369,8 +363,11 @@ contract VaultInvariantsTest is Test {
         }
     }
 
-    function invariant_bonusOncePerPortrait() public view {
-        assertLe(handler.maxBonusesOnOneToken(), 1);
+    /// The liquidity contract holds exactly the released INK plus every fee the vault took; nothing is burned.
+    function invariant_feesToLiquidity() public view {
+        uint256 released = vault.released() ? (2000 - portraits.agentMinted()) * PORTRAIT : 0;
+        assertEq(ink.balanceOf(address(sink)), released + handler.feesToLiquidity());
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
     }
 
     function invariant_agentBalancesMatch() public view {

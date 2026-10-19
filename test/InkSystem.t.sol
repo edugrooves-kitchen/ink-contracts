@@ -9,6 +9,7 @@ import {Deployers} from "v4-core-test/utils/Deployers.sol";
 import {LiquidityAmounts} from "v4-core-test/utils/LiquidityAmounts.sol";
 import {IHooks} from "v4-core/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
+import {SqrtPriceMath} from "v4-core/libraries/SqrtPriceMath.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {PoolIdLibrary} from "v4-core/types/PoolId.sol";
@@ -30,6 +31,8 @@ import {InkVault} from "../src/InkVault.sol";
 import {InkHook, IAgentPortraits, IInkVault} from "../src/InkHook.sol";
 import {InkLiquidity} from "../src/InkLiquidity.sol";
 import {InkRenderer} from "../src/InkRenderer.sol";
+import {InkFeeRouter, IInkLiquidityFees, ILaunchFeeFactory} from "../src/InkFeeRouter.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// A contract wallet with no onERC721Received.
 contract NoReceiver {}
@@ -117,7 +120,7 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
                 )
             )
         );
-        liq = new InkLiquidity(manager, posm, owner);
+        liq = new InkLiquidity(manager, posm, owner, treasury);
         vm.prank(owner);
         portraits.setVault(address(vault));
 
@@ -279,7 +282,7 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         vm.startPrank(swarmDeployer);
         InkPortraits p = new InkPortraits(owner);
         InkVault v = new InkVault(p, seats, owner);
-        InkLiquidity l = new InkLiquidity(manager, posm, owner);
+        InkLiquidity l = new InkLiquidity(manager, posm, owner, treasury);
         vm.stopPrank();
         assertEq(p.owner(), owner);
         assertEq(v.owner(), owner);
@@ -369,7 +372,7 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
             ? LiquidityAmounts.getLiquidityForAmount0(TickMath.getSqrtPriceAtTick(lower), TickMath.getSqrtPriceAtTick(upper), 1_000_000e18)
             : LiquidityAmounts.getLiquidityForAmount1(TickMath.getSqrtPriceAtTick(lower), TickMath.getSqrtPriceAtTick(upper), 1_000_000e18);
         modifyLiquidityRouter.modifyLiquidity(k, ModifyLiquidityParams(lower, upper, int256(uint256(l)), bytes32(0)), "");
-        InkLiquidity l2 = new InkLiquidity(manager, posm, owner);
+        InkLiquidity l2 = new InkLiquidity(manager, posm, owner, treasury);
         vm.prank(owner);
         l2.setPool(k, IERC20(address(ink)));
 
@@ -459,7 +462,7 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         uint256 toPool = vault.release();
         assertEq(toPool, 1999 * PORTRAIT, "every unclaimed seat's INK goes to the pool");
         assertEq(vault.swarmSlots(), 1999, "and becomes a swarm slot");
-        assertEq(liq.positionCount(), 1, "added to the pool in the same transaction");
+        assertEq(liq.positionCount(), liq.LADDER_BANDS(), "added to the pool in the same transaction, as the ladder");
         assertLt(ink.balanceOf(address(liq)), 1e6);
         assertEq(ERC721(address(posm)).ownerOf(liq.positions(0)), address(liq), "and it stays there");
         assertEq(ink.balanceOf(address(vault)), PORTRAIT, "only the claimed portrait's backing is left");
@@ -503,15 +506,15 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         _releaseAndTrade();
         _buyInk(agentA, PORTRAIT);
         uint256 a = _pullAndReveal(agentA);
-        uint256 potBefore = vault.bonusPot();
+        uint256 liqBefore = ink.balanceOf(address(liq));
         _deposit(agentA, a);
-        assertEq(vault.bonusPot() - potBefore, PORTRAIT / 200, "agent holder: 0.5%");
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, PORTRAIT / 200, "agent holder: 0.5%, to liquidity");
 
         _buyInk(buyer, PORTRAIT);
         uint256 b = _pullAndReveal(buyer);
-        potBefore = vault.bonusPot();
+        liqBefore = ink.balanceOf(address(liq));
         _deposit(buyer, b);
-        assertEq(vault.bonusPot() - potBefore, PORTRAIT / 100, "everyone else: 1%");
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, PORTRAIT / 100, "everyone else: 1%, to liquidity");
     }
 
     // ---------------------------------------------------------------- trait rerolls
@@ -529,9 +532,11 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         uint256 t = _pullAndReveal(buyer);
         bytes32 oldSeed = portraits.swarmSeed(t);
 
+        uint256 liqBefore = ink.balanceOf(address(liq));
         uint256 fee = _rerollTraits(buyer, t);
         assertEq(fee, PORTRAIT / 100, "1% for everyone else");
-        assertEq(vault.bonusPot(), fee, "the fee goes into the bonus pot");
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, fee, "the fee goes to the liquidity contract");
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
         vm.expectRevert(InkVault.TooEarly.selector);
         vault.revealTraits(t);
 
@@ -543,8 +548,8 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         assertEq(portraits.ownerOf(t), buyer, "same token, same owner");
         assertTrue(portraits.swarmSeed(t) != oldSeed, "new seed, so new art and traits");
         assertEq(vault.traitRerollBlock(t), 0);
-        // Backing still holds: one portrait outside, its 400k plus the pot.
-        assertEq(ink.balanceOf(address(vault)), PORTRAIT + vault.bonusPot());
+        // Backing still holds: one portrait outside, its 400k.
+        assertEq(ink.balanceOf(address(vault)), PORTRAIT);
     }
 
     function test_traitRerollHalfPriceForAgentHolders() public {
@@ -616,36 +621,15 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         assertTrue(portraits.swarmSeed(t) != oldSeed);
     }
 
-    function test_agentDepositsPortraitForBonus() public {
+    function test_agentDepositReturnsExactlyItsBacking() public {
         _claimA();
         _releaseAndTrade();
-        _buyInk(buyer, 2 * PORTRAIT);
-        uint256 s1 = _pullAndReveal(buyer);
-        _deposit(buyer, s1);
-        _buyInk(buyer, PORTRAIT / 50);
-        uint256 s2 = _pullAndReveal(buyer);
-        _deposit(buyer, s2);
-        assertEq(vault.bonusPot(), PORTRAIT / 50);
-
+        _buyInk(buyer, PORTRAIT);
+        _deposit(buyer, _pullAndReveal(buyer)); // a swarm hand-back's fee goes to liquidity; nothing is saved up
         uint256 before = ink.balanceOf(agentA);
         _deposit(agentA, 280);
-        assertEq(ink.balanceOf(agentA) - before, PORTRAIT + PORTRAIT / 50, "full pot (under the 5% cap) as bonus");
-        assertEq(vault.bonusPot(), 0);
+        assertEq(ink.balanceOf(agentA) - before, PORTRAIT, "400,000 INK, no fee and no bonus");
         assertEq(portraits.ownerOf(280), address(vault), "the agent portrait is now in the pool");
-    }
-
-    function test_agentBonusCappedAtFivePercent() public {
-        _claimA();
-        _releaseAndTrade();
-        _buyInk(buyer, PORTRAIT + PORTRAIT / 10);
-        for (uint256 i; i < 10; i++) {
-            uint256 t = _pullAndReveal(buyer);
-            _deposit(buyer, t);
-        }
-        assertGt(vault.bonusPot(), PORTRAIT / 20);
-        uint256 before = ink.balanceOf(agentA);
-        _deposit(agentA, 280);
-        assertEq(ink.balanceOf(agentA) - before, PORTRAIT + PORTRAIT / 20, "bonus capped at 5%");
     }
 
     function test_depositedAgentPortraitIsPullable() public {
@@ -676,7 +660,7 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         _deposit(agentA, 280);
         _pullAndReveal(buyer);
         uint256 outside = portraits.totalSupply() - vault.heldCount();
-        assertEq(ink.balanceOf(address(vault)), outside * PORTRAIT + vault.bonusPot());
+        assertEq(ink.balanceOf(address(vault)), outside * PORTRAIT);
     }
 
     function test_revealIsNotEarlyAndNotTwice() public {
@@ -697,104 +681,13 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         vault.reveal(pullId);
     }
 
-    /// Audit #1: the same agent portrait could be deposited, pulled back and deposited again for a fresh
-    /// 5% bonus each time, draining the pot.
-    function test_agentBonusPaidOncePerPortrait() public {
-        _claimA();
-        _releaseAndTrade();
-        _buyInk(buyer, 30 * PORTRAIT);
-        for (uint256 i; i < 25; i++) {
-            _deposit(buyer, _pullAndReveal(buyer)); // fill the pot with reroll fees
-        }
-        uint256 before = ink.balanceOf(agentA);
-        _deposit(agentA, 280);
-        assertEq(ink.balanceOf(agentA) - before, PORTRAIT + PORTRAIT / 20, "first deposit earns the bonus");
-        assertTrue(vault.bonusPaid(280));
-
-        // Every slot minted, so a pull can only land on what's in the vault. Keep pulling and handing back
-        // until seat 280's portrait comes round again.
-        vm.mockCall(address(portraits), abi.encodeWithSignature("swarmMinted()"), abi.encode(vault.swarmSlots()));
-        ink.mint(agentA, 100 * PORTRAIT);
-        uint256 again;
-        for (uint256 i; i < 200 && again < 2; i++) {
-            uint256 pullId = _pull(agentA, 1);
-            vm.roll(block.number + 2);
-            vault.reveal(pullId);
-            if (portraits.ownerOf(280) == agentA) {
-                uint256 pot = vault.bonusPot();
-                before = ink.balanceOf(agentA);
-                _deposit(agentA, 280);
-                assertEq(ink.balanceOf(agentA) - before, PORTRAIT, "no second bonus");
-                assertEq(vault.bonusPot(), pot, "the pot is untouched");
-                again++;
-            } else {
-                _deposit(agentA, _swarmHeldBy(agentA));
-            }
-        }
-        assertEq(again, 2, "seat 280's portrait came round twice");
-    }
-
-    function _swarmHeldBy(address who) internal view returns (uint256) {
-        for (uint256 id = 10_000; id < 10_000 + 40; id++) {
-            try portraits.ownerOf(id) returns (address o) {
-                if (o == who) return id;
-            } catch {}
-        }
-        revert("none");
-    }
-
-    /// Audit #3: a puller could see the block hash, then hand in portraits to change the draw's modulus
-    /// and land an agent portrait. Now deposits only join for later pulls and reveals go in order.
-    function test_depositAfterPullCannotSteerTheDraw() public {
-        _claimA();
-        _releaseAndTrade();
-        _buyInk(buyer, 3 * PORTRAIT);
-        uint256 s1 = _pullAndReveal(buyer);
-
-        uint256 pullId = _pull(buyer, 1);
-        uint256 availAtPull = vault.available();
-        vm.roll(block.number + 2);
-        // The hash is public now. Handing portraits in doesn't change what this pull can land on.
-        _depositNoRoll(buyer, s1);
-        vm.prank(agentA);
-        portraits.approve(address(vault), 280);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 280;
-        vm.prank(agentA);
-        vault.deposit(ids, 0);
-        assertEq(vault.available(), availAtPull, "deposits wait for later pulls");
-        vault.reveal(pullId);
-        assertEq(portraits.ownerOf(280), address(vault));
-        assertEq(vault.waitingCount(), 2);
-    }
-
-    function test_revealsGoInOrder() public {
-        _releaseAndTrade();
-        _buyInk(buyer, 2 * PORTRAIT);
-        uint256 first = _pull(buyer, 2);
-        vm.roll(block.number + 2);
-        assertTrue(vault.reveal(first + 1), "revealing a later pull reveals the earlier ones first");
-        assertEq(vault.nextReveal(), first + 2);
-        assertEq(portraits.balanceOf(buyer), 2);
-    }
-
-    function test_expiredPullIsRenewedNotSkipped() public {
-        _releaseAndTrade();
-        _buyInk(buyer, PORTRAIT);
-        uint256 pullId = _pull(buyer, 1);
-        vm.roll(block.number + 300);
-        assertFalse(vault.reveal(pullId), "the hash is gone: renewed against a new block");
-        vm.roll(block.number + 2);
-        assertTrue(vault.reveal(pullId));
-    }
-
     /// Audit #11: fees can change between signing and mining, so deposits take a minimum payout.
     function test_depositMinOut() public {
         _releaseAndTrade();
         _buyInk(buyer, PORTRAIT);
         uint256 t = _pullAndReveal(buyer);
         vm.prank(owner);
-        vault.setFees(500, 500, 0);
+        vault.setFees(500, 500);
         uint256[] memory ids = new uint256[](1);
         ids[0] = t;
         vm.startPrank(buyer);
@@ -809,19 +702,53 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
     function test_hookFeeImdToTreasury() public {
         _release();
         _buyInk(buyer, PORTRAIT);
-        (uint256 imdPaid, uint256 inkBurned) = hook.collectFees();
+        (uint256 imdPaid, uint256 inkToLiq) = hook.collectFees();
         assertGt(imdPaid, 0);
-        assertEq(inkBurned, 0);
+        assertEq(inkToLiq, 0);
         assertEq(imd.balanceOf(treasury), imdPaid);
     }
 
-    function test_hookFeeInkIsBurned() public {
+    function test_hookFeeInkGoesToLiquidity() public {
         _releaseAndTrade();
         _buyInk(buyer, 100 * PORTRAIT);
         _swap(buyer, false, 10e18, false); // sell INK for exactly 10 IMD
-        (, uint256 inkBurned) = hook.collectFees();
-        assertGt(inkBurned, 0);
-        assertEq(ink.balanceOf(DEAD), inkBurned);
+        uint256 liqBefore = ink.balanceOf(address(liq));
+        (, uint256 inkToLiq) = hook.collectFees();
+        assertGt(inkToLiq, 0);
+        assertEq(ink.balanceOf(address(liq)) - liqBefore, inkToLiq);
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
+    }
+
+    /// Every INK fee (hook, hand-back, trait reroll) builds up in the liquidity contract and goes back into
+    /// the pool as a new permanent position once there's a portrait's worth; below that, nobody can add it.
+    function test_inkFeesGoBackIntoThePool() public {
+        _releaseAndTrade();
+        uint256 positionsBefore = liq.positionCount();
+        _buyInk(buyer, PORTRAIT);
+        _deposit(buyer, _pullAndReveal(buyer)); // 1% hand-back fee
+        assertLt(ink.balanceOf(address(liq)), liq.MIN_ADD());
+        vm.expectRevert(InkLiquidity.BelowMinAdd.selector);
+        liq.addLiquidity();
+
+        _buyInk(buyer, 50_000_000e18);
+        ink.mint(other, 200_000_000e18);
+        _swap(other, false, 1_000e18, false); // exact-output sell pays INK in: hook and LP fees in INK
+        uint256 before = ink.balanceOf(address(liq));
+        (, uint256 hookInk) = hook.collectFees();
+        (, uint256 lpInk) = liq.collectFees(0, type(uint256).max);
+        assertGt(hookInk, 0);
+        assertGt(lpInk, 0);
+        assertEq(ink.balanceOf(address(liq)) - before, hookInk + lpInk, "hook and LP INK fees both land here");
+        // Stand in for more trading until a portrait's worth has built up.
+        uint256 pending = ink.balanceOf(address(liq));
+        if (pending < liq.MIN_ADD()) ink.mint(address(liq), liq.MIN_ADD() - pending);
+        vm.prank(other); // anyone can call it
+        uint256 id = liq.addLiquidity();
+        assertGt(liq.positionCount(), positionsBefore); // a ladder if the price is still below the release start
+        assertEq(liq.positions(positionsBefore), id);
+        assertGt(posm.getPositionLiquidity(id), 0);
+        assertLt(ink.balanceOf(address(liq)), 1e6, "at most rounding dust left");
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
     }
 
     function test_agentHoldersPayNoHookFee() public {
@@ -899,7 +826,7 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         vm.startPrank(owner);
         vm.expectRevert(InkLiquidity.PoolAlreadySet.selector);
         liq.setPool(poolKey, IERC20(address(ink)));
-        InkLiquidity l2 = new InkLiquidity(manager, posm, owner);
+        InkLiquidity l2 = new InkLiquidity(manager, posm, owner, treasury);
         vm.expectRevert(InkLiquidity.NotInkPool.selector);
         l2.setPool(poolKey, IERC20(address(0xBEEF)));
         vm.expectRevert(InkLiquidity.BadWidth.selector);
@@ -952,11 +879,9 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         vm.expectRevert(InkVault.InkNotSet.selector);
         v2.setup(root, uint64(block.timestamp), address(liq));
         vm.expectRevert(InkVault.FeeTooHigh.selector);
-        vault.setFees(501, 0, 0);
+        vault.setFees(501, 0);
         vm.expectRevert(InkVault.FeeTooHigh.selector);
-        vault.setFees(100, 101, 0);
-        vm.expectRevert(InkVault.FeeTooHigh.selector);
-        vault.setFees(100, 50, 1001);
+        vault.setFees(100, 101);
         vm.stopPrank();
         vm.expectRevert(InkVault.InkNotSet.selector);
         v2.release();
@@ -1033,39 +958,38 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
     // ---------------------------------------------------------------- LP fees on the released INK
 
     /// The released positions earn the pool's 1.25% like any liquidity; collectFees() pays the IMD side to
-    /// the owner and burns the INK side, so nothing is stranded in a contract with no way out.
-    function test_collectFeesPaysImdToOwnerAndBurnsInk() public {
+    /// the treasury and keeps the INK side for the next addLiquidity(), so nothing is stranded or burned.
+    function test_collectFeesPaysImdToTreasuryAndKeepsInk() public {
         _release();
         vm.expectRevert(InkLiquidity.NothingToCollect.selector);
-        liq.collectFees(1, 5); // clamped to the one position, so the range is empty
+        liq.collectFees(8, 20); // clamped to the 8 ladder positions, so the range is empty
 
         _buyInk(buyer, 50_000_000e18); // pays IMD in: fee in IMD
         ink.mint(other, 200_000_000e18);
         _swap(other, false, 1_000e18, false); // exact-output sell pays INK in: fee in INK
 
-        uint256 imdBefore = imd.balanceOf(owner);
-        uint256 deadBefore = ink.balanceOf(liq.DEAD());
+        uint256 imdBefore = imd.balanceOf(treasury);
         uint256 liqInk = ink.balanceOf(address(liq));
         vm.prank(other); // anyone can call it
-        (uint256 imdOut, uint256 inkBurned) = liq.collectFees(0, type(uint256).max);
-        assertGt(imdOut, 0, "IMD fees reach the owner");
-        assertGt(inkBurned, 0, "INK fees are burned");
-        assertEq(imd.balanceOf(owner) - imdBefore, imdOut);
-        assertEq(ink.balanceOf(liq.DEAD()) - deadBefore, inkBurned);
-        assertEq(ink.balanceOf(address(liq)), liqInk, "nothing left behind in the liquidity contract");
-        assertEq(imd.balanceOf(address(liq)), 0);
+        (uint256 imdOut, uint256 inkKept) = liq.collectFees(0, type(uint256).max);
+        assertGt(imdOut, 0, "IMD fees reach the treasury");
+        assertGt(inkKept, 0, "INK fees are kept for liquidity");
+        assertEq(imd.balanceOf(treasury) - imdBefore, imdOut);
+        assertEq(ink.balanceOf(address(liq)) - liqInk, inkKept);
+        assertEq(ink.balanceOf(DEAD), 0, "nothing is burned");
+        assertEq(imd.balanceOf(address(liq)), 0, "no IMD left behind");
 
         // Collecting again right away finds nothing new, and the position's liquidity is untouched.
-        (imdOut, inkBurned) = liq.collectFees(0, 1);
+        (imdOut, inkKept) = liq.collectFees(0, 1);
         assertEq(imdOut, 0);
-        assertEq(inkBurned, 0);
+        assertEq(inkKept, 0);
         assertGt(posm.getPositionLiquidity(liq.positions(0)), 0);
     }
 
     /// The premium can be set before the pool, which is the order the launch step uses: until setPool()
     /// nobody can list INK through addLiquidity(), so a dust donation can't lock the premium at 0.
     function test_premiumBeforePoolCannotBeFrontRun() public {
-        InkLiquidity l2 = new InkLiquidity(manager, posm, owner);
+        InkLiquidity l2 = new InkLiquidity(manager, posm, owner, treasury);
         ink.mint(other, 1e18);
         vm.startPrank(other);
         ink.transfer(address(l2), 1); // a griefer's dust
@@ -1077,8 +1001,158 @@ contract InkSystemTest is Test, Deployers, DeployPermit2 {
         l2.setPool(poolKey, IERC20(address(ink)));
         vm.stopPrank();
         assertEq(l2.premium(), 16_000);
-        InkLiquidity l3 = new InkLiquidity(manager, posm, owner);
+        InkLiquidity l3 = new InkLiquidity(manager, posm, owner, treasury);
         vm.expectRevert(InkLiquidity.PoolNotSet.selector);
         l3.collectFees(0, 1);
+    }
+
+    // ---------------------------------------------------------------- launch fee router
+
+    /// The manager wallet claims the launch's 1% fee (INK and IMD) and sends it to the router: IMD goes to
+    /// the treasury, INK to InkLiquidity, which lists it once it has a portrait's worth.
+    function test_feeRouterSplitsAndCompounds() public {
+        _release();
+        InkFeeRouter router = new InkFeeRouter(IInkLiquidityFees(address(liq)), IERC20(address(imd)), treasury);
+        uint256 positionsBefore = liq.positionCount();
+        uint256 treasuryBefore = imd.balanceOf(treasury);
+        uint256 liqInk = ink.balanceOf(address(liq));
+
+        // Below MIN_ADD: routed, but no new position yet.
+        imd.mint(address(router), 30e18);
+        ink.mint(address(router), 100_000e18);
+        vm.prank(other); // anyone can call it
+        (uint256 imdOut, uint256 inkOut, uint256 positionId) = router.route();
+        assertEq(imdOut, 30e18);
+        assertEq(inkOut, 100_000e18);
+        assertEq(positionId, 0);
+        assertEq(imd.balanceOf(treasury) - treasuryBefore, 30e18, "IMD to the treasury");
+        assertEq(ink.balanceOf(address(liq)) - liqInk, 100_000e18, "INK waits in InkLiquidity");
+        assertEq(liq.positionCount(), positionsBefore);
+
+        // Enough INK built up: the same call lists it as a new permanent position.
+        ink.mint(address(router), 400_000e18);
+        (, inkOut, positionId) = router.route();
+        assertEq(inkOut, 400_000e18);
+        assertGt(liq.positionCount(), positionsBefore); // below the release start it goes in as a ladder
+        assertEq(liq.positions(positionsBefore), positionId);
+        assertGt(posm.getPositionLiquidity(positionId), 0);
+        assertEq(ink.balanceOf(address(router)), 0);
+        assertEq(imd.balanceOf(address(router)), 0);
+
+        // Nothing held: a no-op, not a revert.
+        (imdOut, inkOut, positionId) = router.route();
+        assertEq(imdOut + inkOut + positionId, 0);
+    }
+
+    /// After the manager hands the requester share to the router, one permissionless call claims and routes it.
+    function test_feeRouterClaimAndRoute() public {
+        _release();
+        InkFeeRouter router = new InkFeeRouter(IInkLiquidityFees(address(liq)), IERC20(address(imd)), treasury);
+        MockLaunchFactory factory = new MockLaunchFactory(address(router));
+        ink.mint(address(factory), 500_000e18);
+        imd.mint(address(factory), 12e18);
+        factory.owe(address(ink), 500_000e18);
+        factory.owe(address(imd), 12e18);
+        uint256 treasuryBefore = imd.balanceOf(treasury);
+        uint256 positionsBefore = liq.positionCount();
+
+        vm.prank(other);
+        (uint256 imdOut, uint256 inkOut, uint256 positionId) = router.claimAndRoute(ILaunchFeeFactory(address(factory)), 7);
+        assertEq(imdOut, 12e18);
+        assertEq(inkOut, 500_000e18);
+        assertEq(imd.balanceOf(treasury) - treasuryBefore, 12e18);
+        assertGt(liq.positionCount(), positionsBefore, "INK listed");
+        assertGt(positionId, 0);
+        assertEq(ink.balanceOf(address(router)) + imd.balanceOf(address(router)), 0);
+    }
+
+    function test_feeRouterNeedsPoolAndAddresses() public {
+        InkLiquidity l2 = new InkLiquidity(manager, posm, owner, treasury);
+        InkFeeRouter router = new InkFeeRouter(IInkLiquidityFees(address(l2)), IERC20(address(imd)), treasury);
+        vm.expectRevert(InkFeeRouter.PoolNotSet.selector);
+        router.route();
+        vm.expectRevert(InkFeeRouter.ZeroAddress.selector);
+        new InkFeeRouter(IInkLiquidityFees(address(l2)), IERC20(address(imd)), address(0));
+        vm.expectRevert(InkLiquidity.ZeroTreasury.selector);
+        new InkLiquidity(manager, posm, owner, address(0));
+    }
+
+    // ---------------------------------------------------------------- collection metadata
+
+    /// The owner sets the marketplace collection metadata (banner etc.); nobody else can.
+    function test_contractURIOwnerOnly() public {
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, other));
+        portraits.setContractURI("ipfs://evil");
+        vm.prank(owner);
+        vm.expectEmit(address(portraits));
+        emit InkPortraits.ContractURIUpdated();
+        portraits.setContractURI("ipfs://collection.json");
+        assertEq(portraits.contractURI(), "ipfs://collection.json");
+    }
+
+    // ---------------------------------------------------------------- release ladder
+
+    /// Release lists the unclaimed INK as 8 touching bands from the release start upward, each with twice
+    /// the liquidity of the one below, holding all of it: thin first, so there's no wall at the start.
+    function test_releaseLadderShape() public {
+        vm.prank(owner);
+        liq.setPremium(16_000);
+        _release();
+        uint256 n = liq.LADDER_BANDS();
+        assertEq(liq.positionCount(), n);
+        int24 start = liq.releaseStartTick();
+        uint256 listed;
+        uint128 prevLiq;
+        int24 prevEdge;
+        for (uint256 k; k < n; k++) {
+            uint256 id = liq.positions(k);
+            (, PositionInfo info) = posm.getPoolAndPositionInfo(id);
+            int24 lo = info.tickLower();
+            int24 hi = info.tickUpper();
+            assertEq(hi - lo, liq.LADDER_BAND_WIDTH(), "band width");
+            if (inkIs0) {
+                if (k == 0) assertGe(lo, start, "starts at the release start");
+                else assertEq(lo, prevEdge, "bands touch");
+                prevEdge = hi;
+            } else {
+                if (k == 0) assertLe(hi, start, "starts at the release start");
+                else assertEq(hi, prevEdge, "bands touch");
+                prevEdge = lo;
+            }
+            uint128 l = posm.getPositionLiquidity(id);
+            if (k > 0) assertApproxEqRel(uint256(l), uint256(prevLiq) * 2, 1e15, "twice as deep as the band below");
+            prevLiq = l;
+            listed += inkIs0
+                ? SqrtPriceMath.getAmount0Delta(TickMath.getSqrtPriceAtTick(lo), TickMath.getSqrtPriceAtTick(hi), l, false)
+                : SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(lo), TickMath.getSqrtPriceAtTick(hi), l, false);
+        }
+        assertApproxEqRel(listed, 2000 * PORTRAIT, 1e12, "all the unclaimed INK is listed");
+        assertLt(ink.balanceOf(address(liq)), 1e15, "only rounding dust left behind");
+    }
+}
+
+/// Stand-in for IMD's LaunchFactory: claimFees pays what's owed straight to the requester.
+contract MockLaunchFactory {
+    address public requester;
+    address[] tokens;
+    mapping(address => uint256) owed;
+
+    constructor(address requester_) {
+        requester = requester_;
+    }
+
+    function owe(address token, uint256 amount) external {
+        tokens.push(token);
+        owed[token] += amount;
+    }
+
+    function claimFees(uint64) external returns (uint256, uint256) {
+        for (uint256 i; i < tokens.length; i++) {
+            uint256 a = owed[tokens[i]];
+            owed[tokens[i]] = 0;
+            if (a != 0) IERC20(tokens[i]).transfer(requester, a);
+        }
+        return (0, 0);
     }
 }

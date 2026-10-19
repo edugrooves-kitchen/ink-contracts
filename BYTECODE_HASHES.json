@@ -1,52 +1,52 @@
 {
   "InkPortraits": {
     "bytecode": {
-      "sha256": "05c76f992f2f6fab961fdb8eda4fec321bfa1dabc080fc313853bf094e873baa",
-      "bytes": 7577
+      "sha256": "db25f66363fb5a2dbb02f2230b9a3f43ba647c05c6594a9098f7dd27819143a7",
+      "bytes": 8697
     },
     "deployedBytecode": {
-      "sha256": "b8590b556d492a86eaa7aa964600a6b2b83b794429e091ce9ca51b55d481799f",
-      "bytes": 6718
+      "sha256": "4ba1defae6da72dfa7de31d2b4f930fe5bd6075245dd34c0eff1ead9b2a00f23",
+      "bytes": 7838
     }
   },
   "InkVault": {
     "bytecode": {
-      "sha256": "4379e6e9078bbd054c41617a9a862584da0e13a65f6c4cbe61edbfb4f8dc98b7",
-      "bytes": 11287
+      "sha256": "84cc4423772a557665e4bd5758823bd69db74334c07c404105898e56c5f48615",
+      "bytes": 10854
     },
     "deployedBytecode": {
-      "sha256": "56dcaee86b080d6b0124c2be4202b16ffdde083a7b592726466dcd40aa2f6824",
-      "bytes": 10822
+      "sha256": "3b9e7abdb17c42decfbc9ba4e9f9017f0207cd400bc0255ec1e4b0677cc064ee",
+      "bytes": 10380
     }
   },
   "InkLiquidity": {
     "bytecode": {
-      "sha256": "6c680d3eaf4aabad88d3f09b25c8a0aded535949c4db7d4214e626455882d2e0",
-      "bytes": 8667
+      "sha256": "1e10c1c86f349eb3704b6da5f5a7e0adcfd2dfad36fd2abd182646f88df7e391",
+      "bytes": 10164
     },
     "deployedBytecode": {
-      "sha256": "9f267a7cda29758d5940f7b6270689634a2af354e9811b6f1b54414c44215884",
-      "bytes": 8274
+      "sha256": "bc55074a3947930a626811bdbba7be584f6855b709dbf4724d6ba7fbb38dc56c",
+      "bytes": 9692
     }
   },
   "InkHook": {
     "bytecode": {
-      "sha256": "cfca5950d0ffaab3ac00c7eadca18d0dd31276ff6554993884e8f477e928648e",
-      "bytes": 7142
+      "sha256": "1e7cccf95b1baa48c089504d8297bcd84a0961f64676c5410a54b1705eb9b31c",
+      "bytes": 7273
     },
     "deployedBytecode": {
-      "sha256": "f80ed518830cbed3b7e7d3da98b1b18cca93f563ba4bb9850f537b6d0814a2f9",
-      "bytes": 5975
+      "sha256": "53b3510383c7b9e66025f6f8a77195dcdc164cc1a7fccdc143203b80af41f122",
+      "bytes": 6099
     }
   },
   "InkRenderer": {
     "bytecode": {
-      "sha256": "fbf45739470ce8f23f21ceb9a0fd061c60440eba46b5e8e0dca91c51887bad5a",
-      "bytes": 12671
+      "sha256": "81cf739dd8f56ba4fba4a7a0789e1750c01c4fc4a6c180047dcb071ccb4f1962",
+      "bytes": 13319
     },
     "deployedBytecode": {
-      "sha256": "bf1337a06bb27555e4597dd00bab644905fb2e5d4e68b37f25c8878d06cb8b4d",
-      "bytes": 11650
+      "sha256": "e6019ef450be9f47330aa6833ac0008e72ccc7f60833b713d98c8af5ba52d3a5",
+      "bytes": 12291
     }
   }
 }

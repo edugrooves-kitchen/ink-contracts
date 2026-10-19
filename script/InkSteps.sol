@@ -28,9 +28,16 @@ abstract contract InkSteps is Script {
     address constant IMD = 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7;
     address constant SEATS = 0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D;
     uint256 constant PORTRAIT = 400_000e18;
+    /// The owner's wallet: every IMD fee (the hook's and the released positions' LP fees) and the IMD side of
+    /// the launch's 1% trading fee (through InkFeeRouter) end up here. The contracts themselves are deployed
+    /// and owned by a separate manager wallet.
+    address constant TREASURY = 0xbc10B3662231c830d2ee10bc6359dB17bEa4b3d4;
     /// Released INK starts 16,000 ticks (about 5x) above the opening price, so the unclaimed seats' INK
     /// isn't sold off at IMD's fixed 2,500 IMD opening price.
     int24 constant RELEASE_PREMIUM = 16_000;
+    /// Owner's schedule: claims open Tue 20 Oct 2026, 9:00 US Eastern (13:00 UTC), and close 24 hours later,
+    /// when release() becomes callable (the API server's release scheduler sends it right away).
+    uint64 constant CLAIM_START = 1_792_501_200;
 
     error Check(string what);
 
@@ -51,6 +58,7 @@ abstract contract InkSteps is Script {
         _require(portraits.owner() == owner, "InkPortraits owner");
         _require(vault.owner() == owner, "InkVault owner");
         _require(liq.owner() == owner, "InkLiquidity owner");
+        _require(liq.treasury() == TREASURY, "InkLiquidity treasury");
         _require(renderer.owner() == owner, "InkRenderer owner");
         _require(address(vault.portraits()) == address(portraits), "vault -> portraits");
         _require(address(vault.seats()) == SEATS, "vault -> identity.md seats");

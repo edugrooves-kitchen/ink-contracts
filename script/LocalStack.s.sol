@@ -50,7 +50,7 @@ contract LocalStack is InkSteps {
         (, owner,) = vm.readCallers();
         portraits = new InkPortraits(owner);
         vault = new InkVault(portraits, IERC721(SEATS), owner);
-        liq = new InkLiquidity(MANAGER, IPositionManager(POSM), owner);
+        liq = new InkLiquidity(MANAGER, IPositionManager(POSM), owner, owner);
         renderer = new InkRenderer(portraits, owner);
         stepConfigureNft(portraits, vault, renderer);
         hook = _deployHook(portraits, vault, owner);

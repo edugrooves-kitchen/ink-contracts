@@ -17,6 +17,7 @@ interface IAgentPortraits {
 
 interface IInkVault {
     function released() external view returns (bool);
+    function liquidity() external view returns (address);
 }
 
 /// @title Ink hook for the INK/IMD Uniswap v4 pool
@@ -28,7 +29,8 @@ interface IInkVault {
 ///   listed at.
 /// - An extra fee of `feeBps` on every swap, waived for holders of an agent portrait. It's taken from
 ///   the side the swapper doesn't fix (the output of an exact-input swap, the input of an exact-output
-///   swap), held as a Uniswap claim, and paid out by collectFees(): IMD to the treasury, INK burned.
+///   swap), held as a Uniswap claim, and paid out by collectFees(): IMD to the treasury, INK to the vault's
+///   liquidity contract, which adds it back to the pool as permanent liquidity.
 /// Nothing can be changed after deployment; the hook has no owner.
 /// @dev The swapper is tx.origin, because routers sit between the wallet and the pool. Smart-contract
 /// wallets therefore don't get the discount. The discount needs the agent portrait to have been
@@ -36,7 +38,6 @@ interface IInkVault {
 contract InkHook is IHooks, IUnlockCallback {
     using CurrencyLibrary for Currency;
 
-    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     uint16 public constant MAX_FEE_BPS = 100;
 
     IPoolManager public immutable poolManager;
@@ -168,13 +169,14 @@ contract InkHook is IHooks, IUnlockCallback {
 
     // ---------------------------------------------------------------- paying out fees
 
-    /// @notice Pays out collected hook fees: IMD to the treasury, INK to the dead address. Anyone can call.
-    function collectFees() external returns (uint256 imdPaid, uint256 inkBurned) {
-        (imdPaid, inkBurned) = abi.decode(poolManager.unlock(""), (uint256, uint256));
+    /// @notice Pays out collected hook fees: IMD to the treasury, INK to the liquidity contract (set once in the
+    /// vault's setup, which trading can't open without), to be added back to the pool. Anyone can call.
+    function collectFees() external returns (uint256 imdPaid, uint256 inkToLiquidity) {
+        (imdPaid, inkToLiquidity) = abi.decode(poolManager.unlock(""), (uint256, uint256));
     }
 
     function unlockCallback(bytes calldata) external onlyPoolManager returns (bytes memory) {
-        return abi.encode(_payOut(imd, treasury), _payOut(ink, DEAD));
+        return abi.encode(_payOut(imd, treasury), _payOut(ink, vault.liquidity()));
     }
 
     function _payOut(Currency currency, address to) internal returns (uint256 amount) {

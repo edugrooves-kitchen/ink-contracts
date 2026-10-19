@@ -73,7 +73,7 @@ contract Rehearse is InkSteps {
     function run() external {
         gasGwei = vm.envOr("GAS_GWEI", uint256(2));
         ethUsd = vm.envOr("ETH_USD", uint256(4000));
-        treasury = owner;
+        treasury = TREASURY;
         console2.log("Rehearsal on mainnet fork at block", block.number);
         console2.log("Gas price (gwei) / ETH (USD):", gasGwei, ethUsd);
         Launch memory l;
@@ -83,7 +83,7 @@ contract Rehearse is InkSteps {
         vm.startPrank(makeAddr("swarm-deployer"));
         l.portraits = new InkPortraits(owner);
         l.vault = new InkVault(l.portraits, IERC721(SEATS), owner);
-        l.liq = new InkLiquidity(MANAGER, IPositionManager(POSM), owner);
+        l.liq = new InkLiquidity(MANAGER, IPositionManager(POSM), owner, treasury);
         l.renderer = new InkRenderer(l.portraits, owner);
         vm.stopPrank();
         _step("1. contracts launch (paid by the swarm job, shown for reference)", g - gasleft(), 4);

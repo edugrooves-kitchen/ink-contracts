@@ -14,38 +14,45 @@
     "changedForPortability": false
   },
   {
+    "path": "src/InkFeeRouter.sol",
+    "workspaceSource": "contracts/src/InkFeeRouter.sol",
+    "sourceSha256": "c83976d09f597c16210d4f5d2bdfca9b27d955cf6a0bece916d091229eb8bbc8",
+    "packagedSha256": "c83976d09f597c16210d4f5d2bdfca9b27d955cf6a0bece916d091229eb8bbc8",
+    "changedForPortability": false
+  },
+  {
     "path": "src/InkHook.sol",
     "workspaceSource": "contracts/src/InkHook.sol",
-    "sourceSha256": "312f6df93ab1a8425ab4acc6d5eba58df20eead6a5e5f8ea7950d9e677a2e1de",
-    "packagedSha256": "312f6df93ab1a8425ab4acc6d5eba58df20eead6a5e5f8ea7950d9e677a2e1de",
+    "sourceSha256": "452b046596622bccacbf6fc17fcf3c770c62658f173db5dc00a444ebc09db1fc",
+    "packagedSha256": "452b046596622bccacbf6fc17fcf3c770c62658f173db5dc00a444ebc09db1fc",
     "changedForPortability": false
   },
   {
     "path": "src/InkLiquidity.sol",
     "workspaceSource": "contracts/src/InkLiquidity.sol",
-    "sourceSha256": "d08474f963c6faf8381fbcf7d64db12d84ff06239d5a6f46eee26d139d4930fc",
-    "packagedSha256": "d08474f963c6faf8381fbcf7d64db12d84ff06239d5a6f46eee26d139d4930fc",
+    "sourceSha256": "214c0523dc6c59c86e3c5afdc22d3643930811149dd4e875218174576d4ba0d1",
+    "packagedSha256": "214c0523dc6c59c86e3c5afdc22d3643930811149dd4e875218174576d4ba0d1",
     "changedForPortability": false
   },
   {
     "path": "src/InkPortraits.sol",
     "workspaceSource": "contracts/src/InkPortraits.sol",
-    "sourceSha256": "476f19f4ee069ace7945ca56ccba536569a7105966b8b2cf69f40a0dbb7bf5dd",
-    "packagedSha256": "476f19f4ee069ace7945ca56ccba536569a7105966b8b2cf69f40a0dbb7bf5dd",
+    "sourceSha256": "f2f08c84af47f36419a01e56b4a61177c01efc59fc5c10b52f20af7aad13f056",
+    "packagedSha256": "f2f08c84af47f36419a01e56b4a61177c01efc59fc5c10b52f20af7aad13f056",
     "changedForPortability": false
   },
   {
     "path": "src/InkRenderer.sol",
     "workspaceSource": "contracts/src/InkRenderer.sol",
-    "sourceSha256": "d873887998791a33196b41d7e85a6e78d2b66608bcf87dfbb686027d1e77ed46",
-    "packagedSha256": "d873887998791a33196b41d7e85a6e78d2b66608bcf87dfbb686027d1e77ed46",
+    "sourceSha256": "659f3f3e41678555d14927f1ba890c868b18ffb8fe40de9cc871eac59eaa21e6",
+    "packagedSha256": "659f3f3e41678555d14927f1ba890c868b18ffb8fe40de9cc871eac59eaa21e6",
     "changedForPortability": false
   },
   {
     "path": "src/InkVault.sol",
     "workspaceSource": "contracts/src/InkVault.sol",
-    "sourceSha256": "088ff271e444806f83edb42491e25fe850db4d67a7ce0b9dfde070adc82b2f2a",
-    "packagedSha256": "088ff271e444806f83edb42491e25fe850db4d67a7ce0b9dfde070adc82b2f2a",
+    "sourceSha256": "f718af1f57d5cb0af4edf338d77f797696ba5920d17e48d708756161c6a917e4",
+    "packagedSha256": "f718af1f57d5cb0af4edf338d77f797696ba5920d17e48d708756161c6a917e4",
     "changedForPortability": false
   },
   {
@@ -58,29 +65,36 @@
   {
     "path": "test/InkRenderer.t.sol",
     "workspaceSource": "contracts/test/InkRenderer.t.sol",
-    "sourceSha256": "97c1119fde369fe4af0f2cbd44fe88c4d840f01bd06b29e6c7d0f3c5526e0dad",
-    "packagedSha256": "929e907a6898bc7432ede4943833f2cc89cd531105afca05c87d346461345c7f",
+    "sourceSha256": "f42c3d9f144002f5f0280ecd8015e2682ea2a2f22fdb2f1286be0d3570beb5c2",
+    "packagedSha256": "ab9d9a3635763367b6b61261c91cb6fc47aeb0a6cf853c2467346705159bcf57",
     "changedForPortability": true
   },
   {
     "path": "test/InkSystem.t.sol",
     "workspaceSource": "contracts/test/InkSystem.t.sol",
-    "sourceSha256": "85403f79e2bdf9e71be8bee10db95c7d611bd12c05a1a0de4f5ca027f279c69e",
-    "packagedSha256": "85403f79e2bdf9e71be8bee10db95c7d611bd12c05a1a0de4f5ca027f279c69e",
+    "sourceSha256": "2bc3670221f2bf9e221da93cefdc001207f645ca1ab8236e83b5832a79458f04",
+    "packagedSha256": "2bc3670221f2bf9e221da93cefdc001207f645ca1ab8236e83b5832a79458f04",
     "changedForPortability": false
   },
   {
     "path": "test/LaunchDay.t.sol",
     "workspaceSource": "contracts/test/LaunchDay.t.sol",
-    "sourceSha256": "4ed3cf310c350dc7a5e53d996c1e11d7c0961db00d2650ebc226285b1779aa31",
-    "packagedSha256": "4ed3cf310c350dc7a5e53d996c1e11d7c0961db00d2650ebc226285b1779aa31",
+    "sourceSha256": "f19ae5406d77d96a102a06a42606d312347cb1cbc65f09fb9b6bb85ff5648174",
+    "packagedSha256": "f19ae5406d77d96a102a06a42606d312347cb1cbc65f09fb9b6bb85ff5648174",
+    "changedForPortability": false
+  },
+  {
+    "path": "test/LaunchFeeHandoff.t.sol",
+    "workspaceSource": "contracts/test/LaunchFeeHandoff.t.sol",
+    "sourceSha256": "f7f96d44441e822b643108c1b6cad3daa9de666c25f3deb2ef8e26cd6497441f",
+    "packagedSha256": "f7f96d44441e822b643108c1b6cad3daa9de666c25f3deb2ef8e26cd6497441f",
     "changedForPortability": false
   },
   {
     "path": "test/MainnetFork.t.sol",
     "workspaceSource": "contracts/test/MainnetFork.t.sol",
-    "sourceSha256": "140c6e591e0775e18090f4443ea9af2061df455108ccdae9b8f3989e09dcbd54",
-    "packagedSha256": "140c6e591e0775e18090f4443ea9af2061df455108ccdae9b8f3989e09dcbd54",
+    "sourceSha256": "c72f60512e024ffe602857f685ad0b889efc52ba512762d3fbabbf2ca3deb7f7",
+    "packagedSha256": "c72f60512e024ffe602857f685ad0b889efc52ba512762d3fbabbf2ca3deb7f7",
     "changedForPortability": false
   },
   {
@@ -114,36 +128,36 @@
   {
     "path": "test/VaultInvariants.t.sol",
     "workspaceSource": "contracts/test/VaultInvariants.t.sol",
-    "sourceSha256": "a84f0fad1acf9f638d286a91edda8e12e68038c54471f7c39e1862fd2ec83e42",
-    "packagedSha256": "a84f0fad1acf9f638d286a91edda8e12e68038c54471f7c39e1862fd2ec83e42",
+    "sourceSha256": "114ef7fa0ef037afeb615317e0af7e56ad8f7285ffc64ff3dc39708add0df330",
+    "packagedSha256": "114ef7fa0ef037afeb615317e0af7e56ad8f7285ffc64ff3dc39708add0df330",
     "changedForPortability": false
   },
   {
     "path": "script/Configure.s.sol",
     "workspaceSource": "contracts/script/Configure.s.sol",
-    "sourceSha256": "22ef79d9844d23caec67d3393e51b0789b81ff47afbe7ba95b5aeab152a96e2c",
-    "packagedSha256": "22ef79d9844d23caec67d3393e51b0789b81ff47afbe7ba95b5aeab152a96e2c",
+    "sourceSha256": "41148f2b76e42dbe0f22d1b34922f00cbdbbe16ba65a8b29cff6492cf0d16889",
+    "packagedSha256": "41148f2b76e42dbe0f22d1b34922f00cbdbbe16ba65a8b29cff6492cf0d16889",
     "changedForPortability": false
   },
   {
     "path": "script/InkSteps.sol",
     "workspaceSource": "contracts/script/InkSteps.sol",
-    "sourceSha256": "20c74c52fb5a36986577393262d6f5c28d8ad6b4ddd0ac2237b20bb95f63319f",
-    "packagedSha256": "20c74c52fb5a36986577393262d6f5c28d8ad6b4ddd0ac2237b20bb95f63319f",
+    "sourceSha256": "41663b7514427362c1c81b94cad59496208feefe70969fb41e0a39fc5394bbc2",
+    "packagedSha256": "41663b7514427362c1c81b94cad59496208feefe70969fb41e0a39fc5394bbc2",
     "changedForPortability": false
   },
   {
     "path": "script/LocalStack.s.sol",
     "workspaceSource": "contracts/script/LocalStack.s.sol",
-    "sourceSha256": "0509bb33180c9fac36695d900573e7a39de4c596cd59a6981f7618942b416920",
-    "packagedSha256": "0509bb33180c9fac36695d900573e7a39de4c596cd59a6981f7618942b416920",
+    "sourceSha256": "9bed7d678458ef43838507c3db369518dca43e8796085b58000ea7835b024b71",
+    "packagedSha256": "9bed7d678458ef43838507c3db369518dca43e8796085b58000ea7835b024b71",
     "changedForPortability": false
   },
   {
     "path": "script/Rehearse.s.sol",
     "workspaceSource": "contracts/script/Rehearse.s.sol",
-    "sourceSha256": "59e2781970bda41d73fb8d4d17be1850989db8a0551c31d5a2e44586ebb68c5e",
-    "packagedSha256": "59e2781970bda41d73fb8d4d17be1850989db8a0551c31d5a2e44586ebb68c5e",
+    "sourceSha256": "c601015236c3611d83364a1ea6532703faab578927dcf27d469b3ad786fff977",
+    "packagedSha256": "c601015236c3611d83364a1ea6532703faab578927dcf27d469b3ad786fff977",
     "changedForPortability": false
   },
   {

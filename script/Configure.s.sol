@@ -35,8 +35,8 @@ contract ConfigureNft is InkSteps {
 }
 
 /// @notice Launch step 4, for the owner after the hook launch: checks the hook, pool and vault balance, then
-/// setInk, setPool and setup. CLAIM_START is a unix time within 30 days.
-///   … HOOK=… INK=… TREASURY=… POOL_FEE=12500 TICK_SPACING=200 ROOT=0x… CLAIM_START=… \
+/// setInk, setPool and setup. CLAIM_START (a unix time within 30 days) defaults to the owner's schedule in InkSteps.
+///   … HOOK=… INK=… TREASURY=… POOL_FEE=12500 TICK_SPACING=200 ROOT=0x… [CLAIM_START=…] \
 ///   forge script script/Configure.s.sol:OpenClaims --rpc-url $RPC   # simulate first, add --broadcast to send
 contract OpenClaims is InkSteps {
     function run() external {
@@ -54,9 +54,9 @@ contract OpenClaims is InkSteps {
             tickSpacing: int24(int256(vm.envUint("TICK_SPACING"))),
             hooks: IHooks(address(hook))
         });
-        checkHookLaunch(hook, portraits, vault, vm.envAddress("TREASURY"), ink, key);
+        checkHookLaunch(hook, portraits, vault, TREASURY, ink, key);
         vm.startBroadcast(owner);
-        stepOpenClaims(vault, liq, ink, key, vm.envBytes32("ROOT"), uint64(vm.envUint("CLAIM_START")));
+        stepOpenClaims(vault, liq, ink, key, vm.envBytes32("ROOT"), uint64(vm.envOr("CLAIM_START", uint256(CLAIM_START))));
         vm.stopBroadcast();
         console2.log("Claims open at", vault.claimStart(), "and close at", vault.claimEnd());
     }

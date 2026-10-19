@@ -96,6 +96,13 @@ contract InkRenderer is IInkRenderer, Ownable {
     }
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
+        return string.concat("data:application/json;base64,", Base64.encode(bytes(tokenJSON(tokenId))));
+    }
+
+    /// @notice The metadata JSON that tokenURI() wraps: name ("Agent Portrait #0280", or "Swarm Portrait #0003"
+    /// for a swarm portrait filling unclaimed seat 3),
+    /// portrait_type ("agent" or "swarm", also the Type trait), description, image, animation_url, attributes.
+    function tokenJSON(uint256 tokenId) public view returns (string memory) {
         bool agent = portraits.isAgentPortrait(tokenId);
         string memory params;
         string memory name;
@@ -104,7 +111,7 @@ contract InkRenderer is IInkRenderer, Ownable {
         if (agent) {
             InkPortraits.AgentStats memory s = portraits.agentStats(tokenId);
             l = agentLabels(tokenId, s);
-            name = string.concat("Seat #", tokenId.toString());
+            name = string.concat("Agent Portrait #", _padded(tokenId));
             params = string.concat(
                 '{"mode":"agent","seat":', tokenId.toString(),
                 ',"accepted":', uint256(s.accepted).toString(),
@@ -123,7 +130,7 @@ contract InkRenderer is IInkRenderer, Ownable {
         } else {
             string memory seed = Strings.toHexString(uint256(portraits.swarmSeed(tokenId)), 32);
             l = swarmLabels(seed);
-            name = string.concat("Pool #", (tokenId - portraits.SWARM_ID_OFFSET()).toString());
+            name = string.concat("Swarm Portrait #", _padded(portraits.swarmNumber(tokenId)));
             params = string.concat('{"mode":"swarm","seed":"', seed, '"}');
         }
 
@@ -148,14 +155,16 @@ contract InkRenderer is IInkRenderer, Ownable {
         string memory image = bytes(previewBase).length == 0
             ? ""
             : string.concat('"image":"', previewBase, tokenId.toString(), '.png",');
-        string memory json = string.concat(
-            '{"name":"Ink & Inference \\u00b7 ', name,
-            '","description":"The swarm, painted by its own work. Drawn live in your browser from code stored on Ethereum.",',
+        return string.concat(
+            '{"name":"', name,
+            '","description":"',
+            agent ? string.concat("Agent portrait of identity.md seat #", tokenId.toString(), ". ") : string.concat("Swarm portrait filling unclaimed seat #", portraits.swarmNumber(tokenId).toString(), ", pulled from the pool. "),
+            'The swarm, painted by its own work. Drawn live in your browser from code stored on Ethereum.",',
+            '"portrait_type":"', agent ? "agent" : "swarm", '",',
             image,
             '"animation_url":"data:text/html;base64,', Base64.encode(bytes(html)),
             '","attributes":', attrs, "}"
         );
-        return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
     }
 
     // ---------------------------------------------------------------- traits, mirroring deriveTraits()
@@ -220,6 +229,12 @@ contract InkRenderer is IInkRenderer, Ownable {
             t = (t + ((t ^ (t >> 7)) * (61 | t))) ^ t;
             return (a, t ^ (t >> 14));
         }
+    }
+
+    /// @dev At least four digits, zero-padded: 7 → "0007", 280 → "0280", 12345 → "12345".
+    function _padded(uint256 n) internal pure returns (string memory s) {
+        s = n.toString();
+        while (bytes(s).length < 4) s = string.concat("0", s);
     }
 
     /// @dev value / 10^places as a JavaScript number would print it ("46.7", "46", "98.59").
