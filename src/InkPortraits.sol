@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 interface IInkRenderer {
     function tokenURI(uint256 tokenId) external view returns (string memory);
@@ -11,6 +12,19 @@ interface IInkRenderer {
 
 interface IInkTraitRerolls {
     function traitRerollBlock(uint256 tokenId) external view returns (uint64);
+    function liquidity() external view returns (address);
+}
+
+interface IInkPortraitBinding {
+    function portraits() external view returns (address);
+}
+
+interface IInkVaultBinding {
+    function seats() external view returns (address);
+}
+
+interface IInkRendererBinding {
+    function chunkCount() external view returns (uint256);
 }
 
 /// @title Ink & Inference portraits
@@ -19,7 +33,7 @@ interface IInkTraitRerolls {
 /// - Swarm portraits: token ids from 10,000, painted from a random seed. Each one fills an unclaimed seat's
 ///   number: the k-th swarm portrait is numbered after the k-th unclaimed seat (see swarmNumber).
 /// - 0% trading fee: ERC-2981 reports a zero royalty, so marketplaces show no creator fee on resales.
-contract InkPortraits is ERC721, ERC2981, Ownable {
+contract InkPortraits is ERC721, ERC2981, Ownable2Step {
     uint256 public constant MAX_SUPPLY = 2000;
     uint256 public constant SEAT_COUNT = 2000;
     uint256 public constant SWARM_ID_OFFSET = 10_000;
@@ -51,6 +65,10 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     mapping(address => uint256) public agentBalanceOf;
     /// @notice The block an address last went from holding no agent portrait to holding one.
     mapping(address => uint256) public agentHolderSince;
+    /// @notice Whether a swarm portrait's current holder received it from the vault (a pull) and has not
+    /// moved it since. The vault's agent-holder reroll discount applies only to such portraits, so a
+    /// contract that parks one agent portrait can't resell the discount on portraits handed to it.
+    mapping(uint256 tokenId => bool) public heldFromVault;
 
     event VaultSet(address vault);
     event RendererSet(address renderer);
@@ -68,6 +86,10 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     error NoRenderer();
     error SwarmStarted();
     error RerollPending();
+    error InvalidBinding();
+    error UseDeposit();
+    error SetupIncomplete();
+    error InvalidRecipient();
 
     constructor(address owner_) ERC721("Ink & Inference", "INKINF") Ownable(owner_) {
         _setDefaultRoyalty(owner_, ROYALTY_BPS);
@@ -82,12 +104,18 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
 
     function setVault(address vault_) external onlyOwner {
         if (vault != address(0)) revert VaultAlreadySet();
+        _checkBinding(vault_);
+        // The renderer also exposes portraits(); distinguish the two application types.
+        if (IInkVaultBinding(vault_).seats() == address(0)) revert InvalidBinding();
         vault = vault_;
         emit VaultSet(vault_);
     }
 
     function setRenderer(address renderer_) external onlyOwner {
         if (rendererLocked) revert Locked();
+        _checkBinding(renderer_);
+        // Reject a vault mistakenly supplied as the renderer, even though its collection matches.
+        IInkRendererBinding(renderer_).chunkCount();
         renderer = renderer_;
         emit RendererSet(renderer_);
         emit BatchMetadataUpdate(0, type(uint256).max);
@@ -105,6 +133,17 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     function setContractURI(string calldata uri) external onlyOwner {
         contractURI = uri;
         emit ContractURIUpdated();
+    }
+
+    function _checkBinding(address target) internal view {
+        if (target.code.length == 0 || IInkPortraitBinding(target).portraits() != address(this)) {
+            revert InvalidBinding();
+        }
+    }
+
+    function renounceOwnership() public override onlyOwner {
+        if (vault == address(0) || renderer == address(0)) revert SetupIncomplete();
+        super.renounceOwnership();
     }
 
     // ---------------------------------------------------------------- minting (vault only)
@@ -147,8 +186,15 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
 
     /// @notice Whether `holder` gets agent-holder perks (no hook fee, half-price rerolls): it holds an agent
     /// portrait and has since an earlier block, so a portrait lent for one transaction doesn't count.
-    function isAgentHolder(address holder) external view returns (bool) {
+    function isAgentHolder(address holder) public view returns (bool) {
         return agentBalanceOf[holder] > 0 && agentHolderSince[holder] < block.number;
+    }
+
+    /// @notice Whether `holder` pays the agent-holder reroll fee on swarm portrait `tokenId`: it is an agent
+    /// holder and the portrait came to it straight from the vault. A portrait received from anyone else
+    /// (a sale, or a hand-in through a contract that holds an agent portrait) pays the full fee.
+    function hasRerollDiscount(address holder, uint256 tokenId) external view returns (bool) {
+        return heldFromVault[tokenId] && _ownerOf(tokenId) == holder && isAgentHolder(holder);
     }
 
     /// @notice The number a swarm portrait goes by: the seat number it fills. Swarm portrait k (token id
@@ -202,8 +248,13 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
     }
 
     function _update(address to, uint256 tokenId, address auth) internal override returns (address from) {
+        // Only deposit() accounts for custody and releases backing to the holder.
+        if (to == vault && msg.sender != vault) revert UseDeposit();
+        if (to != address(0) && vault != address(0) && to == IInkTraitRerolls(vault).liquidity()) {
+            revert InvalidRecipient();
+        }
         // A buyer must receive the traits offered for sale. Only the holder can request a reroll and
-        // anyone can finish it; there is no owner-controlled transfer lock. Minting needs no vault call.
+        // anyone can finish it; there is no owner-controlled transfer lock. Mints skip the reroll check.
         if (
             _ownerOf(tokenId) != address(0) && !isAgentPortrait(tokenId)
                 && IInkTraitRerolls(vault).traitRerollBlock(tokenId) != 0
@@ -212,6 +263,9 @@ contract InkPortraits is ERC721, ERC2981, Ownable {
         if (isAgentPortrait(tokenId)) {
             if (from != address(0)) agentBalanceOf[from]--;
             if (to != address(0) && agentBalanceOf[to]++ == 0) agentHolderSince[to] = block.number;
+        } else {
+            // Only the vault's own hand-outs (mintSwarm, a revealed inventory portrait) keep the discount.
+            heldFromVault[tokenId] = msg.sender == vault;
         }
     }
 }

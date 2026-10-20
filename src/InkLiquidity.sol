@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -16,6 +17,8 @@ import {Actions} from "v4-periphery/src/libraries/Actions.sol";
 import {ActionConstants} from "v4-periphery/src/libraries/ActionConstants.sol";
 import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol";
 import {SqrtPriceMath} from "v4-core/libraries/SqrtPriceMath.sol";
+import {InkHook} from "./InkHook.sol";
+import {InkVault} from "./InkVault.sol";
 
 /// @title Ink liquidity
 /// @notice Adds INK to the INK/IMD pool and keeps the positions forever: it has no way to remove
@@ -29,7 +32,7 @@ import {SqrtPriceMath} from "v4-core/libraries/SqrtPriceMath.sol";
 /// price to the extreme for free and the released INK would be listed at almost nothing.
 /// The positions earn the pool's LP fee like any other liquidity. Anyone can call collectFees(): the IMD side
 /// goes to the treasury and the INK side stays here for the next addLiquidity(), the same split as the hook's fee.
-contract InkLiquidity is Ownable, IERC721Receiver {
+contract InkLiquidity is Ownable2Step, IERC721Receiver {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
     using SafeERC20 for IERC20;
@@ -42,6 +45,8 @@ contract InkLiquidity is Ownable, IERC721Receiver {
     IERC20 public ink;
     PoolKey public poolKey;
     bool public poolSet;
+    /// @notice The vault the pool's hook is bound to; INK is listed only once it has released.
+    InkVault public vault;
     /// @notice The pool's tick when setPool() was called; released INK is never listed below this price.
     int24 public floorTick;
     /// @notice Width of a single position, in ticks (about 7.4x in price at 20,000). Used once the price has
@@ -61,6 +66,7 @@ contract InkLiquidity is Ownable, IERC721Receiver {
     /// @notice addLiquidity() waits until at least one portrait's worth of INK has built up, so fees go back
     /// in as a few sizeable positions rather than many dust ones (which would also be cheaper to sandwich).
     uint256 public constant MIN_ADD = 400_000e18;
+    address public constant MAINNET_IMD = 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7;
 
     uint256[] public positions;
 
@@ -80,6 +86,10 @@ contract InkLiquidity is Ownable, IERC721Receiver {
     error BadPremium();
     error NothingToCollect();
     error ZeroTreasury();
+    error InvalidHook();
+    error InvalidPositionManager();
+    error UnexpectedNFT();
+    error NotReleased();
 
     constructor(
         IPoolManager poolManager_,
@@ -100,11 +110,37 @@ contract InkLiquidity is Ownable, IERC721Receiver {
         if (!(key.currency0 == c || key.currency1 == c)) revert NotInkPool();
         (uint160 sqrtPriceX96, int24 tick,,) = poolManager.getSlot0(key.toId());
         if (sqrtPriceX96 == 0) revert PoolNotInitialized();
+        InkVault boundVault = _checkHook(key, ink_);
+        if (address(positionManager.poolManager()) != address(poolManager)) revert InvalidPositionManager();
         poolKey = key;
         ink = ink_;
+        vault = boundVault;
         poolSet = true;
         floorTick = tick;
         emit PoolSet(key.toId(), address(ink_));
+    }
+
+    /// @dev The later hook launch supplies these bindings; no dependency is called in the constructor.
+    function _checkHook(PoolKey calldata key, IERC20 ink_) internal view returns (InkVault boundVault) {
+        if (address(key.hooks).code.length == 0) revert InvalidHook();
+        InkHook hook = InkHook(address(key.hooks));
+        Currency other = Currency.unwrap(key.currency0) == address(ink_) ? key.currency1 : key.currency0;
+        if (
+            !hook.poolCreated() || address(hook.poolManager()) != address(poolManager)
+                || Currency.unwrap(hook.ink()) != address(ink_)
+                || Currency.unwrap(hook.imd()) != Currency.unwrap(other) || hook.treasury() != treasury
+                || (block.chainid == 1 && Currency.unwrap(other) != MAINNET_IMD)
+        ) revert InvalidHook();
+        boundVault = InkVault(address(hook.vault()));
+        if (
+            boundVault.ink() != ink_ || address(boundVault.portraits()) != address(hook.portraits())
+                || boundVault.portraits().vault() != address(boundVault) || boundVault.owner() != owner()
+        ) revert InvalidHook();
+    }
+
+    function renounceOwnership() public override onlyOwner {
+        if (!poolSet) revert PoolNotSet();
+        super.renounceOwnership();
     }
 
     function setWidth(int24 width_) external onlyOwner {
@@ -123,9 +159,11 @@ contract InkLiquidity is Ownable, IERC721Receiver {
     /// @notice Adds all INK this contract holds to the pool, single-sided, once it holds at least MIN_ADD.
     /// While the price hasn't passed the release start (opening price plus premium), it goes in as the release
     /// ladder from there; after that, as one `width`-tick position just past the current price. Anyone can
-    /// call it. Returns the first new position.
+    /// call it, from the vault's release on (the pool is locked until then, and listing INK earlier would only
+    /// fix the premium before the owner has set it). Returns the first new position.
     function addLiquidity() external returns (uint256 positionId) {
         if (!poolSet) revert PoolNotSet();
+        if (!vault.released()) revert NotReleased();
         uint256 amount = ink.balanceOf(address(this));
         if (amount == 0) revert NothingToAdd();
         if (amount < MIN_ADD) revert BelowMinAdd();
@@ -226,18 +264,19 @@ contract InkLiquidity is Ownable, IERC721Receiver {
         if (_inkIs0() ? tick < start : tick > start) tick = start;
         w = (w / spacing) * spacing;
         if (w == 0) w = spacing;
+        // Widen in int256 so a width near type(int24).max clamps instead of overflowing.
         if (_inkIs0()) {
             // Token0-only liquidity sits above the price.
             lower = _floor(tick, spacing) + spacing;
-            upper = lower + w;
-            int24 maxTick = TickMath.maxUsableTick(spacing);
-            if (upper > maxTick) upper = maxTick;
+            int256 maxTick = TickMath.maxUsableTick(spacing);
+            int256 up = int256(lower) + int256(w);
+            upper = int24(up > maxTick ? maxTick : up);
         } else {
             // Token1-only liquidity sits below the price.
             upper = _floor(tick, spacing);
-            lower = upper - w;
-            int24 minTick = TickMath.minUsableTick(spacing);
-            if (lower < minTick) lower = minTick;
+            int256 minTick = TickMath.minUsableTick(spacing);
+            int256 low = int256(upper) - int256(w);
+            lower = int24(low < minTick ? minTick : low);
         }
     }
 
@@ -283,7 +322,8 @@ contract InkLiquidity is Ownable, IERC721Receiver {
         return positions.length;
     }
 
-    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+    function onERC721Received(address, address, uint256, bytes calldata) external view returns (bytes4) {
+        if (msg.sender != address(positionManager)) revert UnexpectedNFT();
         return IERC721Receiver.onERC721Received.selector;
     }
 
