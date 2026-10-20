@@ -73,7 +73,7 @@ contract SnapshotAllSeatsTest is Test {
         vm.startPrank(owner);
         portraits.setVault(address(vault));
         vault.setInk(IERC20(address(ink)));
-        vault.setup(tree[0], uint64(block.timestamp), address(1));
+        vault.setup(tree[0], uint64(block.timestamp), address(this)); // never released; setup needs a contract here
         vm.stopPrank();
 
         uint256 totalGas;

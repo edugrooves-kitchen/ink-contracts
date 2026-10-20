@@ -1,32 +1,32 @@
 {
   "InkPortraits": {
     "bytecode": {
-      "sha256": "db25f66363fb5a2dbb02f2230b9a3f43ba647c05c6594a9098f7dd27819143a7",
-      "bytes": 8697
+      "sha256": "8e5b605ee92522dd7950ebac6c8787070f735250ce6ce8dd799005632df53ce2",
+      "bytes": 8937
     },
     "deployedBytecode": {
-      "sha256": "4ba1defae6da72dfa7de31d2b4f930fe5bd6075245dd34c0eff1ead9b2a00f23",
-      "bytes": 7838
+      "sha256": "ae89c9f25f04d2eb0c916cfb0dfa31105d5988759659b26615af53d5ea1f053c",
+      "bytes": 8078
     }
   },
   "InkVault": {
     "bytecode": {
-      "sha256": "e366e1bca94e5fc1f349498093052103308747cc1f31e740b59aae0d40d12853",
-      "bytes": 10942
+      "sha256": "88a8343e1a28c900fc70dc0cee25d09de676158d0ac2b7f70f1360c1902385f6",
+      "bytes": 11594
     },
     "deployedBytecode": {
-      "sha256": "2c1d7cf17715fa157b275868a6aeb1a8e8e295c5269f08210ec43dd3b7e5a8d7",
-      "bytes": 10468
+      "sha256": "81004d57aca55ed29879ee8d63832e650b1dfd3e36ebe9536d462502378a0381",
+      "bytes": 11120
     }
   },
   "InkLiquidity": {
     "bytecode": {
-      "sha256": "1e10c1c86f349eb3704b6da5f5a7e0adcfd2dfad36fd2abd182646f88df7e391",
-      "bytes": 10164
+      "sha256": "12c01bec4b91589640130a0c4b6c65fbd2c115913d54f3c1a64ab5777da37a07",
+      "bytes": 10196
     },
     "deployedBytecode": {
-      "sha256": "bc55074a3947930a626811bdbba7be584f6855b709dbf4724d6ba7fbb38dc56c",
-      "bytes": 9692
+      "sha256": "0129ac37fca996d5fd1a23b6745ea07f4ad0418983b54d246549e5bbdec48e10",
+      "bytes": 9724
     }
   },
   "InkHook": {
@@ -41,12 +41,12 @@
   },
   "InkRenderer": {
     "bytecode": {
-      "sha256": "81cf739dd8f56ba4fba4a7a0789e1750c01c4fc4a6c180047dcb071ccb4f1962",
-      "bytes": 13319
+      "sha256": "a7a4cabff09a44a9856e0adcdbe4c4d709cc065cf41b718af1deb82531b13573",
+      "bytes": 13756
     },
     "deployedBytecode": {
-      "sha256": "e6019ef450be9f47330aa6833ac0008e72ccc7f60833b713d98c8af5ba52d3a5",
-      "bytes": 12291
+      "sha256": "fd7f03f0956b6d526c37e83d2459ac9b6fd9158fcbe44cc3c4f57dd55e7e4da0",
+      "bytes": 12721
     }
   }
 }

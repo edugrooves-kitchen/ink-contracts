@@ -61,7 +61,9 @@ contract VaultHandler is Test {
             portraits.setApprovalForAll(address(vault), true);
         }
         for (uint256 s; s < SEATS_IN_TREE; s++) {
-            stats[s] = InkPortraits.AgentStats(uint32(s * 37), uint16(5000 + s * 500), uint32(s * 900), uint32(s * 11), s % 3 == 0);
+            stats[s] = InkPortraits.AgentStats(
+                uint32(s * 37), uint16(5000 + s * 500), uint32(s * 900), uint32(s * 11), s % 3 == 0
+            );
             leaves[s] = _leaf(s, stats[s]);
             seats.mint(actors[s % actors.length], s);
         }
@@ -76,7 +78,9 @@ contract VaultHandler is Test {
 
     function _leaf(uint256 seat, InkPortraits.AgentStats memory s) internal pure returns (bytes32) {
         return keccak256(
-            bytes.concat(keccak256(abi.encode(seat, s.accepted, s.rateBps, s.turns, s.hoursTenths, s.outdated)))
+            bytes.concat(
+                keccak256(abi.encode(seat, s.accepted, s.rateBps, s.turns, s.hoursTenths, s.outdated))
+            )
         );
     }
 
@@ -163,7 +167,7 @@ contract VaultHandler is Test {
 
     function pull(uint256 actorSeed, uint256 count) external counted("pull") {
         if (!vault.released()) return;
-        uint256 room = vault.available() + vault.waitingCount() - (vault.pullCount() - vault.nextReveal());
+        uint256 room = vault.available() + vault.waitingBefore() - (vault.pullCount() - vault.nextReveal());
         if (room == 0) return;
         count = bound(count, 1, room < 60 ? room : 60);
         address who = _actor(actorSeed);
@@ -175,7 +179,7 @@ contract VaultHandler is Test {
     /// Pulls everything that's left (up to 500), to drive the collection to its 2,000 cap.
     function pullAll(uint256 actorSeed) external counted("pullAll") {
         if (!vault.released()) return;
-        uint256 room = vault.available() + vault.waitingCount() - (vault.pullCount() - vault.nextReveal());
+        uint256 room = vault.available() + vault.waitingBefore() - (vault.pullCount() - vault.nextReveal());
         if (room == 0) return;
         if (room > 500) room = 500;
         address who = _actor(actorSeed);
@@ -187,7 +191,7 @@ contract VaultHandler is Test {
 
     function pullTooMany(uint256 actorSeed) external counted("pullTooMany") {
         if (!vault.released()) return;
-        uint256 room = vault.available() + vault.waitingCount() - (vault.pullCount() - vault.nextReveal());
+        uint256 room = vault.available() + vault.waitingBefore() - (vault.pullCount() - vault.nextReveal());
         address who = _actor(actorSeed);
         _fund(who, (room + 1) * PORTRAIT);
         vm.prank(who);
@@ -269,7 +273,10 @@ contract VaultHandler is Test {
         address from = _actor(fromSeed);
         uint256 id = _heldBy(from, pick);
         if (id == type(uint256).max) return;
+        bool pending = vault.traitRerollBlock(id) != 0;
         vm.prank(from);
+        // Audit 5574e8bc: the holder's pending repaint prevents selling stale traits.
+        if (pending) vm.expectRevert(InkPortraits.RerollPending.selector);
         portraits.transferFrom(from, _actor(toSeed), id);
     }
 
@@ -341,7 +348,9 @@ contract VaultInvariantsTest is Test {
 
     function invariant_capAndSlots() public view {
         assertLe(portraits.totalSupply(), 2000);
-        assertLe(portraits.swarmMinted(), vault.swarmSlots(), "never more swarm portraits than unclaimed seats");
+        assertLe(
+            portraits.swarmMinted(), vault.swarmSlots(), "never more swarm portraits than unclaimed seats"
+        );
         if (vault.released()) assertEq(portraits.agentMinted() + vault.swarmSlots(), 2000);
     }
 
@@ -352,7 +361,9 @@ contract VaultInvariantsTest is Test {
     /// Every queued pull has a portrait waiting for it, so no pull can be stuck for want of one.
     function invariant_queueCovered() public view {
         uint256 queued = vault.pullCount() - vault.nextReveal();
-        assertLe(queued, vault.available() + vault.waitingCount());
+        // Audit 4ca49345: hand-ins from this block never count, so a fixed admission cutoff always has a portrait.
+        assertLe(queued, vault.available() + vault.waitingBefore());
+        assertLe(vault.waitingBefore(), vault.waitingCount());
         if (vault.nextReveal() > 0) {
             (,, bool done) = vault.pulls(vault.nextReveal() - 1);
             assertTrue(done);
